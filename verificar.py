@@ -272,6 +272,27 @@ def main():
             check(f"{mod}: '{agregado}' existe y trae datos",
                   len(vivos) >= 1, f"indicadores con dato: {len(vivos)}")
 
+    # Cifras de control del agregado de 23 ciudades, Abr-Jun 2026. Se leyeron
+    # de las hojas -- fila 485 en general, 423 en las dos de sexo -- y cuadran
+    # entre si: los ocupados de hombres mas los de mujeres dan exactamente los
+    # del modulo general. Ese cuadre es lo que confirma que se esta leyendo el
+    # bloque correcto y no el de 13 ciudades o el de 10.
+    t23 = "Total 23 ciudades y A.M."
+    for mod, clave, esperado, tol in (
+            ("general", "td", 8.61, 0.01), ("general", "to", 59.98, 0.01),
+            ("general", "tgp", 65.63, 0.01), ("general", "ocupados", 12627.5, 0.2),
+            ("hombres", "td", 7.65, 0.01), ("hombres", "ocupados", 6818.1, 0.2),
+            ("mujeres", "td", 9.71, 0.01), ("mujeres", "ocupados", 5809.4, 0.2)):
+        v = d["series"]["tm"][mod][t23][clave][i_ult]
+        check(f"23 ciudades / {mod}: {clave} cerca de {esperado}",
+              v is not None and abs(v - esperado) < tol, f"{v}")
+
+    oc_h = d["series"]["tm"]["hombres"][t23]["ocupados"][i_ult]
+    oc_m = d["series"]["tm"]["mujeres"][t23]["ocupados"][i_ult]
+    oc_g = d["series"]["tm"]["general"][t23]["ocupados"][i_ult]
+    check("23 ciudades: hombres + mujeres = los ocupados del general",
+          abs(oc_h + oc_m - oc_g) < 0.2, f"{oc_h} + {oc_m} = {oc_h + oc_m} vs {oc_g}")
+
     # Y que no se colara el agregado de 10 ciudades, que el tablero no usa
     check("no entro el agregado de 10 ciudades",
           not [c for c in d["ciudades"] if "10 ciudades" in normalizar(c)],

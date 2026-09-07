@@ -146,15 +146,53 @@ Los anexos del DANE cambian de nombre cada mes y crecen en columnas.
 **No introduzcas índices fijos de fila o columna.** Es lo que hace que el
 proceso sobreviva a las actualizaciones del DANE.
 
-### 5. Una hoja por módulo NO trae todo
+### 5. Canonizar SIEMPRE antes de filtrar
+
+Esta es la causa raíz de tres errores seguidos, y vale más que la tabla de
+alias que la acompaña. **El orden importa más que la tabla.**
+
+`detectar_bloques()` comparaba el nombre crudo de la columna A contra
+`NOMBRES_CIUDAD` y solo *después*, ya aceptado el bloque, lo pasaba por
+`titulo_ciudad()`:
+
+```python
+validos = {norm(n) for n in nombres_validos}    # ← lista literal
+if norm(v) in validos:                          # ← se decide aquí
+    bloques.append((i, titulo_ciudad(v)))       # ← se canoniza tarde
+```
+
+Con ese orden, la tabla `AGREGADOS` **no servía para nada en la decisión**.
+Cualquier grafía que no estuviera literalmente en `NOMBRES_CIUDAD` se
+descartaba en silencio, aunque la tabla la resolviera perfectamente. Por eso
+`TOTAL 23 CIUDADES Y A.M.` no entraba: el alias existía y nunca se consultaba.
+
+Lo correcto es canonizar los dos lados y comparar formas canónicas:
+
+```python
+validos = {norm(titulo_ciudad(n)) for n in nombres_validos}
+canon = titulo_ciudad(v)
+if norm(canon) in validos:
+    bloques.append((i, canon))
+```
+
+**La regla general:** cuando haya una tabla de normalización, aplícala antes de
+cualquier filtro, comparación o descarte. Una tabla de alias que se consulta
+después de decidir es decoración. Vale para ciudades, para nombres de hoja y
+para etiquetas de indicador.
+
+Por qué costó tres intentos: el síntoma siempre parecía otro — primero "faltan
+hojas", luego "faltan grafías", después "no existe el dato". Las tres veces la
+causa era la misma línea.
+
+### 5.1 Una hoja por módulo NO trae todo
 
 El DANE reparte **las mismas variables en varias hojas, una por nivel
 geográfico**. Nunca asumir que la hoja de un módulo trae todos los dominios.
 
-Costó tres intentos darse cuenta. El ETL leía una sola hoja por módulo, y por
-eso juventud y sexo se quedaron meses sin total nacional ni total de 13
-ciudades: el chip de comparación estaba en la interfaz y no dibujaba nada.
-Nadie lo notó porque no falla, simplemente no aparece la línea.
+El ETL leía una sola hoja por módulo, y por eso juventud y sexo se quedaron
+meses sin total nacional ni total de 13 ciudades: el chip de comparación estaba
+en la interfaz y no dibujaba nada. Nadie lo notó porque no falla, simplemente
+no aparece la línea.
 
 ```
 JUVENTUD (MLJ)      ' Tnal trimestre móvil'        -> Total nacional
@@ -167,8 +205,9 @@ SEXO (MLS)          'P y T N'                      -> nacional, con HOMBRES y MU
                     'Mujeres - 23 Ciud'
 ```
 
-**Y escribe el mismo agregado de varias formas.** Estas tres son la misma
-entidad, y ninguna normalización razonable las hace converger sola:
+### 5.2 El mismo agregado, cuatro grafías
+
+Ninguna normalización razonable las hace converger sola:
 
 ```
 "Total 23 ciudades y área metropolitanas"    general        ÁREA en singular
@@ -177,11 +216,14 @@ entidad, y ninguna normalización razonable las hace converger sola:
 "23 ciudades y A.M."                         informalidad   sin "Total"
 ```
 
-La tabla `AGREGADOS` en `etl.py` las resuelve todas. **Al agregar una hoja, lo
-primero es listar sus grafías y compararlas contra esa tabla**, no suponer que
-ya están cubiertas.
+La tabla `AGREGADOS` en `etl.py` las resuelve todas — **pero solo funciona si
+se consulta antes de filtrar**, que es la regla 5. Al agregar una hoja, listar
+sus grafías y compararlas contra esa tabla, no suponer que ya están cubiertas.
 
-Tres trampas concretas más, todas comprobadas:
+Los bloques de agregado van **al final de la hoja**, después de las ciudades:
+fila 485 de 515 en general, 423 de 448 en sexo.
+
+### 5.3 Tres trampas más, todas comprobadas
 
 1. **`' Tnal trimestre móvil'` empieza con un espacio.** `cargar_hoja()` lo
    tolera porque compara normalizado, pero al escribir el nombre hay que
@@ -197,6 +239,12 @@ Tres trampas concretas más, todas comprobadas:
    la fila 13 es la cabecera real. Buscar por nombre y quedarse con la primera
    coincidencia devuelve un bloque vacío. `bloque_con_nombre()` sigue buscando
    hasta que una coincidencia traiga indicadores.
+
+Esa tercera trampa tuvo un efecto de rebote: al canonizar antes de filtrar, el
+subtítulo también pasó a detectarse como bloque, y eso rompió el conteo de
+períodos, que se anclaba en "primer bloque + 2 filas". Ahora la fila de
+trimestres se busca por contenido, con `fila_encabezado()`. **No quedan
+anclajes por posición de fila en el ETL**, y no deben volver.
 
 Para acotar dónde termina un bloque, `rango_del_bloque()` usa un criterio
 **estructural**: una fila de indicador siempre trae números en las columnas de
@@ -760,7 +808,11 @@ período, agregar y quitar ciudades, y mirarlo en ancho de celular.
      antes que del archivo.** Esa asimetría casi siempre es un bug propio, no
      una laguna del DANE.
 
-  Los tres errores fueron: leer una sola hoja por módulo, filtrar por nombre
-  literal antes de canonizar, y dejar de recorrer antes del final.
+  Los tres síntomas fueron distintos — "faltan hojas", "faltan grafías", "no
+  existe el dato" — pero **la causa era la misma línea**: `detectar_bloques()`
+  filtraba por nombre literal antes de canonizar, así que la tabla de alias
+  nunca entraba en la decisión. Está explicado en la regla 5. Cuando aparezca
+  un cuarto síntoma parecido, empieza por ahí: **¿se está normalizando antes de
+  filtrar, o después?**
 - **Nada de datos inventados ni de ejemplo.** Si algo no se puede calcular,
   queda vacío y se dice por qué.
