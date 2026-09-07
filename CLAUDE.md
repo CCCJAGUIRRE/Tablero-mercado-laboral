@@ -146,7 +146,72 @@ Los anexos del DANE cambian de nombre cada mes y crecen en columnas.
 **No introduzcas índices fijos de fila o columna.** Es lo que hace que el
 proceso sobreviva a las actualizaciones del DANE.
 
-### 5. El enlace guarda el período por código, no por posición
+### 5. Una hoja por módulo NO trae todo
+
+El DANE reparte **las mismas variables en varias hojas, una por nivel
+geográfico**. Nunca asumir que la hoja de un módulo trae todos los dominios.
+
+Costó tres intentos darse cuenta. El ETL leía una sola hoja por módulo, y por
+eso juventud y sexo se quedaron meses sin total nacional ni total de 13
+ciudades: el chip de comparación estaba en la interfaz y no dibujaba nada.
+Nadie lo notó porque no falla, simplemente no aparece la línea.
+
+```
+JUVENTUD (MLJ)      ' Tnal trimestre móvil'        -> Total nacional
+                    '13 ciudades trimestre móvil'  -> Total 13 ciudades
+                    '23 ciudades trim móvil'       -> las 23 ciudades
+
+SEXO (MLS)          'P y T N'                      -> nacional, con HOMBRES y MUJERES
+                    'P y T 13 Ciud'                -> 13 ciudades, con HOMBRES y MUJERES
+                    'Hombres - 23 Ciud'            -> las 23 ciudades
+                    'Mujeres - 23 Ciud'
+```
+
+Tres trampas concretas, todas comprobadas:
+
+1. **`' Tnal trimestre móvil'` empieza con un espacio.** `cargar_hoja()` lo
+   tolera porque compara normalizado, pero al escribir el nombre hay que
+   saberlo.
+
+2. **El subtítulo de la hoja miente.** Las tres hojas de juventud dicen
+   "Total nacional" en su línea de subtítulo, incluso las de 13 y 23 ciudades.
+   Es un copiar-pegar del DANE. **No uses el subtítulo para identificar el
+   nivel**: usa el nombre de la hoja y la cabecera del bloque de datos.
+
+3. **El título de la hoja normaliza igual que la cabecera del bloque.** En la
+   hoja nacional de juventud, la fila 9 dice `Total nacional` como subtítulo y
+   la fila 13 es la cabecera real. Buscar por nombre y quedarse con la primera
+   coincidencia devuelve un bloque vacío. `bloque_con_nombre()` sigue buscando
+   hasta que una coincidencia traiga indicadores.
+
+Para acotar dónde termina un bloque, `rango_del_bloque()` usa un criterio
+**estructural**: una fila de indicador siempre trae números en las columnas de
+período, una cabecera solo trae texto. No se usa la lista de indicadores del
+mapa, porque el mapa no cubre todo lo que publica la hoja — "Tasa de
+Subocupación" no está en `MAPA_SEXO` y cortaba el bloque a la mitad, dejando
+fuera todos los niveles de población.
+
+**Qué agregados existen de verdad**, después de leer las cuatro hojas nuevas:
+
+| | general | hombres | mujeres | juventud | informalidad | fuera | posición |
+|---|---|---|---|---|---|---|---|
+| Total 13 ciudades | sí | sí | sí | sí | sí | sí | sí |
+| Total nacional | sí | sí | sí | sí | sí | — | — |
+| Total 23 ciudades | — | — | — | sí | sí | — | — |
+
+`Total 13 ciudades y A.M.` está en los siete módulos, y por eso la comparación
+por defecto — 13 ciudades, Bogotá, Medellín — dibuja en todas las secciones.
+
+**`Total 23 ciudades` no existe** en los anexos general y de sexo. Lo que
+parece serlo es el título de la hoja: de hecho la hoja que el DANE llama
+"Total 23 ciudades A.M. Trim" trae como único agregado el de 13 ciudades.
+No se deriva sumando las 23: sería publicar como oficial, con el logo de la
+Cámara, una cifra que el DANE no publica.
+
+`verificar.py` comprueba esta matriz. Si alguien deja de leer una de esas
+hojas, la prueba lo caza.
+
+### 6. El enlace guarda el período por código, no por posición
 
 El estado de la vista vive en el hash de la URL:
 
@@ -172,7 +237,7 @@ entrada por clic — dentro de un `try`, porque en `tablero-completo.html` el
 origen es `null` y `replaceState` lanza `SecurityError`. Sin ese `try` la
 versión de doble clic se caería en cada render.
 
-### 6. Detalles de las fuentes
+### 7. Detalles de las fuentes
 
 - Las poblaciones vienen en miles; el front las convierte a personas al mostrar.
 - La informalidad solo existe desde el primer trimestre de 2021, por el cambio
@@ -180,6 +245,112 @@ versión de doble clic se caería en cada render.
 - Los NINI quedaron fuera a propósito: el DANE solo los publica a nivel
   nacional y el foco es Cali.
 - Cali A.M. incluye a Cali y Yumbo.
+
+---
+
+## Qué trae cada anexo
+
+**68 hojas en los cuatro anexos. El ETL lee 13.** Este inventario existe para
+poder decidir qué se puede pedir sin volver a abrir los archivos. `USA` marca
+las que el ETL lee hoy.
+
+### General — `anexGEIH<mes><año>.xlsx` · 21 hojas
+
+| | hoja | qué trae | nivel | serie |
+|---|---|---|---|---|
+| **USA** | `Total nacional Trim` | tasas y niveles | nacional | trim. 2007– |
+| **USA** | `Total 23 ciudades A.M. Trim` | tasas y niveles | 23 ciudades + Total 13 | trim. 2007– |
+| **USA** | `Ocupados 23 Ciudades_pos_Trim` | posición ocupacional | 23 ciudades | trim. 2010– |
+| **USA** | `Pob_fuera_fuerza_trab_T13ciud` | fuera de la fuerza, por actividad | 13 ciudades | trim. 2010– |
+| | `Total nacional` | lo mismo, serie mensual | nacional | mensual 2001– |
+| | `Total 13 ciudades A.M.` | lo mismo, serie mensual | 13 ciudades | mensual 2001– |
+| | `Total 7 ciudades sin A.M.` | tasas y niveles | 7 ciudades sin A.M. | trim. 2021– |
+| | `Ocupados TN_posición` | posición ocupacional | nacional | mensual 2010– |
+| | `Pob_fuera_fuerza_trabajo_TN` | fuera de la fuerza, por actividad | nacional | mensual 2010– |
+| | `Ocupados TN_T13_rama` | ramas de actividad CIIU 4 | nacional | mensual 2015– |
+| | `Ocupados TN_TCAB_TRES_rama_Trim` | ramas CIIU 4 | nacional, cab., resto | trim. 2015– |
+| | `Ocupados 23 Ciudades_rama_Trim` | **ramas CIIU 4 por ciudad** | 23 ciudades | trim. 2015– |
+| | `Año_móvil_32_ciudades` | tasas y niveles | 32 ciudades | año móvil |
+| | `Año_móvil_5_ciudades_interm` + `_Rama` + `_Posc` | tasas, ramas, posición | 5 ciudades intermedias | año móvil |
+| | `Otras_formas_trabajo` | trabajo no remunerado | nacional | mensual 2021– |
+| | `Total_nacional_IML_Sexo` | tasas y niveles por sexo | nacional | mensual 2010– |
+| | `Índice`, `Ficha metodológica`, `Errores relativos` | documentación | — | — |
+
+### Sexo — `anexGEIHMLS<trimestre>.xlsx` · 16 hojas
+
+| | hoja | qué trae | nivel | serie |
+|---|---|---|---|---|
+| **USA** | `Hombres - 23 Ciud` / `Mujeres - 23 Ciud` | tasas y niveles | 23 ciudades | trim. móvil 2007– |
+| **USA** | `P y T N` | tasas y niveles, bloques HOMBRES/MUJERES | nacional | trim. móvil 2007– |
+| **USA** | `P y T 13 Ciud` | ídem | 13 ciudades | trim. móvil 2007– |
+| | `P y T Cab` / `P y T Centros` | ídem | cabeceras / resto | trim. móvil 2007– |
+| | `Pos ocup N` | **posición ocupacional por sexo** | nacional | trim. móvil 2007– |
+| | `Pos ocup 13 Ciud` | **posición ocupacional por sexo** | 13 ciudades | trim. móvil 2007– |
+| | `FFT N` | **fuera de la fuerza por actividad y sexo** | nacional | trim. móvil 2007– |
+| | `FFT 13 Ciud` | **ídem** | 13 ciudades | trim. móvil 2007– |
+| | `Ramas CIIU 4 N` / `Ramas CIIU4 13 Ciud` | ramas por sexo | nacional / 13 ciudades | trim. móvil 2015– |
+| | `Índice`, `Ficha metodológica`, `Código_SAS`, `Errores Relativos` | documentación | — | — |
+
+**Ojo con `FFT 13 Ciud` y `Pos ocup 13 Ciud`:** traen el corte por sexo, pero
+**solo para el agregado**, en bloques HOMBRES y MUJERES. No hay ciudades, así
+que no sirven para desagregar Cali. Es lo que se revisó al construir la sección
+de fuera de la fuerza de trabajo.
+
+### Juventud — `anexGEIHMLJ<trimestre>.xlsx` · 12 hojas
+
+| | hoja | qué trae | nivel | serie |
+|---|---|---|---|---|
+| **USA** | `23 ciudades trim móvil` | tasas y niveles 15-28 | 23 ciudades | trim. móvil 2007– |
+| **USA** | `13 ciudades trimestre móvil` | ídem | 13 ciudades | trim. móvil 2007– |
+| **USA** | ` Tnal trimestre móvil` | ídem *(empieza con espacio)* | nacional | trim. móvil 2007– |
+| | `PoscOcup trim móvil 13 ciudades` | **posición ocupacional juvenil** | 13 ciudades | trim. móvil 2007– |
+| | `PoscOcup trim móvil Tnal` | ídem | nacional | trim. móvil 2007– |
+| | `Ocup ramas trim 13 ciuda CIIU4` | ramas CIIU 4 juvenil | 13 ciudades | trim. móvil 2015– |
+| | `Ocup ramas trim Tnal CIIU4` | ídem | nacional | trim. móvil 2015– |
+| | `Jóvenes_NOE Tnal` | **NINI: ni estudian ni trabajan** | nacional | trim. móvil 2007– |
+| | `Índice`, `Ficha metodológica`, `Código_SAS`, `Errores relativos` | documentación | — | — |
+
+`Jóvenes_NOE Tnal` es la hoja de los NINI. Solo nacional, que es la razón por la
+que quedaron fuera del tablero.
+
+### Informalidad — `anexGEIHEISS<trimestre>.xlsx` · 19 hojas
+
+Todas las de datos arrancan en 2021 y todas traen nacional + 13 + 23 ciudades.
+
+| | hoja | qué trae |
+|---|---|---|
+| **USA** | `Prop informalidad` | proporción de informalidad, **por ciudad** |
+| **USA** | `Ciudades` | ocupados total / formal / informal, **por ciudad** |
+| | `Sexo` | ocupados formal/informal **por sexo** |
+| | `Posición ocupacional` | formal/informal **por posición** |
+| | `Educación ` | formal/informal por nivel educativo |
+| | `Ramas de actividad CIIU 4 A.C` | formal/informal por rama |
+| | `Tamaño de empresa` | formal/informal por tamaño de empresa |
+| | `Lugar de trabajo` | formal/informal por lugar de trabajo |
+| | `Seguridad social Tnal` / `13 ciudades ` | afiliación a salud y pensión |
+| | `Seguridad social Tnal sexo` / `13C sexo` | afiliación por sexo |
+| | `Grandes dominios ` | ocupados formal/informal, serie mensual |
+| | `Total nacional` | ocupados formal/informal, nacional y ruralidad |
+| | `Indice`, `Ficha Metodológica`, `Código_SAS`, `Código_STATA`, `Errores relativos` | documentación |
+
+**Las hojas de corte de EISS solo traen agregados**, no ciudades. Para cualquier
+desglose de informalidad a nivel Cali, la única fuente es `Ciudades`.
+
+### Lo más aprovechable que hay sin usar
+
+Ordenado por lo que aportaría a un tablero centrado en Cali:
+
+1. **`Ocupados 23 Ciudades_rama_Trim`** (general) — ramas de actividad **por
+   ciudad**, desde 2015. Es la única hoja de ramas con desglose por ciudad, así
+   que es la que permitiría una sección de estructura sectorial de Cali.
+2. **`PoscOcup trim móvil 13 ciudades`** (juventud) — posición ocupacional
+   juvenil. Solo agregado de 13 ciudades, no Cali.
+3. **`Pos ocup 13 Ciud`** y **`FFT 13 Ciud`** (sexo) — los cortes por sexo de
+   posición ocupacional y de fuera de la fuerza. Solo agregado.
+4. **`Jóvenes_NOE Tnal`** (juventud) — NINI, solo nacional.
+
+Regla práctica: si la hoja no dice "ciudades" en el nombre y en la cabecera de
+sus bloques, casi seguro solo trae agregados y no sirve para hablar de Cali.
 
 ---
 
@@ -510,7 +681,7 @@ python etl.py && python verificar.py
 
 Y abrir el tablero de verdad en un navegador. Los errores que importan —
 etiquetas encimadas, series que no pintan, paneles vacíos — no salen en la
-consola. Recorrer las siete secciones en los dos modos temporales, cambiar
+consola. Recorrer las ocho secciones en los dos modos temporales, cambiar
 período, agregar y quitar ciudades, y mirarlo en ancho de celular.
 
 ---

@@ -374,6 +374,58 @@ NOMBRES_CIUDAD = [
 ]
 
 
+def rango_del_bloque(filas, fila_ini, mapa, col_ini=1, n_per=None):
+    """Hasta donde llega un bloque: la siguiente fila que es cabecera de otro.
+
+    El criterio es estructural: una fila de indicador SIEMPRE trae numeros en
+    las columnas de periodo; una cabecera de bloque solo trae texto. No se usa
+    la lista de indicadores del mapa para decidirlo, porque el mapa no cubre
+    todo lo que publica la hoja -- 'Tasa de Subocupacion' no esta en MAPA_SEXO
+    y cortaba el bloque a la mitad, dejando fuera todos los niveles.
+
+    Se conserva el mapa como salvavidas para el caso raro de un indicador
+    conocido cuya fila venga entera vacia.
+
+    Hace falta acotar porque estas hojas no traen un solo bloque: la de
+    juventud nacional trae ademas 'Total Nacional - Hombres', 'Total Cabeceras'
+    y varios mas, todos con las mismas etiquetas de indicador.
+    """
+    prefijos = tuple(mapa.values())
+    tope = col_ini + n_per if n_per else None
+    for i in range(fila_ini + 1, len(filas)):
+        f = filas[i]
+        if not f or f[0] is None:
+            continue
+        etq = norm(f[0])
+        if not etq or etq == "concepto":
+            continue
+        if any(isinstance(v, (int, float)) for v in f[col_ini:tope]):
+            continue                      # trae datos: es un indicador
+        if etq.startswith(prefijos):
+            continue                      # indicador conocido, fila vacia
+        return i
+    return len(filas)
+
+
+def bloque_con_nombre(filas, etiqueta, mapa, n_per, col_ini=1):
+    """Extrae UN bloque, localizado por su etiqueta en la columna A.
+
+    Sigue buscando mientras la coincidencia no traiga indicadores. Hace falta
+    porque estas hojas repiten el nombre arriba, como titulo: en la de juventud
+    nacional, la fila 9 dice 'Total nacional' de subtitulo y la 13 es la
+    cabecera del bloque de verdad. Quedarse con la primera devolvia vacio.
+    """
+    objetivo = norm(etiqueta)
+    for i, f in enumerate(filas):
+        if f and f[0] is not None and norm(f[0]) == objetivo:
+            b = indicadores_del_bloque(
+                filas, i, rango_del_bloque(filas, i, mapa, col_ini, n_per),
+                mapa, n_per, col_ini)
+            if b:
+                return b
+    return {}
+
+
 def parse_general(ruta: Path):
     filas = cargar_hoja(ruta, "Total 23 ciudades A.M. Trim")
     bloques = detectar_bloques(filas, NOMBRES_CIUDAD)
@@ -424,6 +476,14 @@ def parse_total_nacional(ruta: Path, n_per: int):
     return indicadores_del_bloque(filas, fila_hdr, len(filas), MAPA_GENERAL, n_per)
 
 
+# Igual que juventud: los agregados viven en sus propias hojas, y ahi el corte
+# por sexo son bloques HOMBRES y MUJERES dentro de la misma hoja.
+HOJAS_SEXO_AGREGADO = (
+    ("P y T N", "Total nacional"),
+    ("P y T 13 Ciud", "Total 13 ciudades y A.M."),
+)
+
+
 def parse_sexo(ruta: Path):
     salida = {}
     n_per = None
@@ -439,6 +499,16 @@ def parse_sexo(ruta: Path):
             ff = bloques[k + 1][0] if k + 1 < len(bloques) else len(filas)
             d[nombre] = indicadores_del_bloque(filas, fi, ff, MAPA_SEXO, n_per)
         salida[clave] = d
+
+    for hoja, canonico in HOJAS_SEXO_AGREGADO:
+        f2 = cargar_hoja(ruta, hoja)
+        for etiqueta, clave in (("Hombres", "hombres"), ("Mujeres", "mujeres")):
+            b = bloque_con_nombre(f2, etiqueta, MAPA_SEXO, n_per)
+            if b:
+                salida[clave][canonico] = b
+            else:
+                print(f"  [AVISO] sexo: no se encontro '{etiqueta}' en '{hoja}'")
+
     print(f"  sexo         : {len(salida['mujeres'])} ciudades x {n_per} trimestres moviles")
     return periodos, salida
 
@@ -461,6 +531,19 @@ MAPA_JOVEN = {
 }
 
 
+# El DANE reparte las MISMAS variables en varias hojas, una por nivel
+# geografico. La de 23 ciudades no trae el total nacional ni el de 13 ciudades:
+# esos viven en sus propias hojas, con identica estructura. Leer una sola hoja
+# por modulo deja huecos que no se ven hasta que alguien compara.
+HOJAS_JOVEN_AGREGADO = (
+    # el nombre de esta hoja empieza con un espacio en el archivo del DANE;
+    # cargar_hoja() lo tolera porque compara normalizado
+    ("Tnal trimestre móvil", "Total Nacional", "Total nacional"),
+    ("13 ciudades trimestre móvil", "Total 13 ciudades y áreas metropolitanas",
+     "Total 13 ciudades y A.M."),
+)
+
+
 def parse_juventud(ruta: Path):
     filas = cargar_hoja(ruta, "23 ciudades trim móvil")
     bloques = detectar_bloques(filas, NOMBRES_CIUDAD)
@@ -480,6 +563,25 @@ def parse_juventud(ruta: Path):
             b["pet_joven"] = [num(f2[c]) if c < len(f2) else None
                               for c in range(1, 1 + n_per)]
         datos[nombre] = b
+
+    for hoja, etiqueta, canonico in HOJAS_JOVEN_AGREGADO:
+        f2 = cargar_hoja(ruta, hoja)
+        b = bloque_con_nombre(f2, etiqueta, MAPA_JOVEN, n_per)
+        if not b:
+            print(f"  [AVISO] juventud: no se encontro '{etiqueta}' en '{hoja}'")
+            continue
+        # Misma salvedad que arriba: la PET aparece dos veces, total y joven
+        ini = next(i for i, f in enumerate(f2)
+                   if f and f[0] is not None and norm(f[0]) == norm(etiqueta))
+        ocur = [i for i in range(ini, rango_del_bloque(f2, ini, MAPA_JOVEN, 1, n_per))
+                if f2[i] and f2[i][0] and
+                norm(f2[i][0]).startswith("poblacion en edad de trabajar")]
+        if len(ocur) >= 2:
+            fj = f2[ocur[1]]
+            b["pet_joven"] = [num(fj[c]) if c < len(fj) else None
+                              for c in range(1, 1 + n_per)]
+        datos[canonico] = b
+
     print(f"  juventud     : {len(datos)} ciudades x {n_per} trimestres moviles")
     return periodos, datos
 

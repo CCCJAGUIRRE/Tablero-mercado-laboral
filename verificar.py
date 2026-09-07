@@ -249,6 +249,45 @@ def main():
     for mod in ("fuera", "posicion"):
         check(f"{mod}: Cali A.M. esta presente", "Cali A.M." in d["series"]["tm"][mod])
 
+    # ── Agregados: el hueco que estuvo ahi desde el principio ────────
+    #
+    # El DANE reparte las MISMAS variables en varias hojas, una por nivel
+    # geografico. El ETL leia una sola hoja por modulo, asi que juventud y sexo
+    # se quedaron sin total nacional ni total de 13 ciudades durante meses sin
+    # que nadie lo notara: el chip de comparacion estaba, y no dibujaba nada.
+    #
+    # "Total 13 ciudades y A.M." es el agregado que usa la comparacion por
+    # defecto, asi que tiene que existir en TODOS los modulos o alguna seccion
+    # abre en blanco.
+    for mod in d["series"]["tm"]:
+        tiene = "Total 13 ciudades y A.M." in d["series"]["tm"][mod]
+        check(f"{mod}: tiene el agregado de 13 ciudades", tiene)
+
+    # Total nacional: en los cinco modulos que lo publican. Las hojas de fuera
+    # de la fuerza de trabajo y de posicion ocupacional que lee el ETL son de
+    # 13 y 23 ciudades; el nacional vive en otras hojas del mismo anexo, que
+    # hoy no se leen (ver el inventario en CLAUDE.md).
+    for mod in ("general", "hombres", "mujeres", "juventud", "informalidad"):
+        check(f"{mod}: tiene el agregado nacional",
+              "Total nacional" in d["series"]["tm"][mod])
+
+    # Total 23 ciudades: solo donde el DANE lo publica como bloque de datos.
+    # En los anexos general y de sexo NO existe: lo que parece serlo es el
+    # titulo de la hoja. De hecho la hoja que el DANE llama "Total 23 ciudades
+    # A.M." trae como agregado el de 13. No se deriva sumando las 23 ciudades:
+    # seria publicar como oficial una cifra que el DANE no publica.
+    for mod in ("juventud", "informalidad"):
+        check(f"{mod}: tiene el agregado de 23 ciudades",
+              "Total 23 ciudades y A.M." in d["series"]["tm"][mod])
+
+    # Que el agregado exista no basta: tiene que traer datos. Un bloque mal
+    # acotado devuelve la clave con todas las series vacias.
+    for mod in d["series"]["tm"]:
+        ind = d["series"]["tm"][mod].get("Total 13 ciudades y A.M.", {})
+        vivos = [k for k, v in ind.items() if any(x is not None for x in v)]
+        check(f"{mod}: el agregado de 13 ciudades trae datos",
+              len(vivos) >= 4, f"indicadores con dato: {len(vivos)}")
+
     # Un indicador de nivel que no este en NIVELES desaparece del promedio anual
     # sin avisar: la serie existe en trimestre movil y en anual no. Paso justo
     # eso al agregar estos dos modulos. Las tasas no aplican, porque el anual
