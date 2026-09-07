@@ -167,7 +167,21 @@ SEXO (MLS)          'P y T N'                      -> nacional, con HOMBRES y MU
                     'Mujeres - 23 Ciud'
 ```
 
-Tres trampas concretas, todas comprobadas:
+**Y escribe el mismo agregado de varias formas.** Estas tres son la misma
+entidad, y ninguna normalización razonable las hace converger sola:
+
+```
+"Total 23 ciudades y área metropolitanas"    general        ÁREA en singular
+"Total 23 ciudades y áreas metropolitanas"   juventud       plural
+"TOTAL 23 CIUDADES Y A.M."                   sexo           con sigla
+"23 ciudades y A.M."                         informalidad   sin "Total"
+```
+
+La tabla `AGREGADOS` en `etl.py` las resuelve todas. **Al agregar una hoja, lo
+primero es listar sus grafías y compararlas contra esa tabla**, no suponer que
+ya están cubiertas.
+
+Tres trampas concretas más, todas comprobadas:
 
 1. **`' Tnal trimestre móvil'` empieza con un espacio.** `cargar_hoja()` lo
    tolera porque compara normalizado, pero al escribir el nombre hay que
@@ -191,22 +205,43 @@ mapa, porque el mapa no cubre todo lo que publica la hoja — "Tasa de
 Subocupación" no está en `MAPA_SEXO` y cortaba el bloque a la mitad, dejando
 fuera todos los niveles de población.
 
-**Qué agregados existen de verdad**, después de leer las cuatro hojas nuevas:
+**Qué agregados existen de verdad:**
 
 | | general | hombres | mujeres | juventud | informalidad | fuera | posición |
 |---|---|---|---|---|---|---|---|
+| Total nacional | sí | sí | sí | sí | sí | sí* | sí* |
 | Total 13 ciudades | sí | sí | sí | sí | sí | sí | sí |
-| Total nacional | sí | sí | sí | sí | sí | — | — |
-| Total 23 ciudades | — | — | — | sí | sí | — | — |
+| Total 23 ciudades | sí | sí | sí | sí | sí | — | — |
 
-`Total 13 ciudades y A.M.` está en los siete módulos, y por eso la comparación
-por defecto — 13 ciudades, Bogotá, Medellín — dibuja en todas las secciones.
+\* convertido de serie mensual, ver más abajo.
 
-**`Total 23 ciudades` no existe** en los anexos general y de sexo. Lo que
-parece serlo es el título de la hoja: de hecho la hoja que el DANE llama
-"Total 23 ciudades A.M. Trim" trae como único agregado el de 13 ciudades.
-No se deriva sumando las 23: sería publicar como oficial, con el logo de la
-Cámara, una cifra que el DANE no publica.
+Los tres están en todos los módulos donde el DANE los publica, así que la
+comparación por defecto — 13 ciudades, Bogotá, Medellín — dibuja en todas las
+secciones, y el comparador nacional también.
+
+`Total 23 ciudades` no existe en las hojas de fuera de la fuerza de trabajo
+(solo trae 13 ciudades) ni en la de posición ocupacional (termina en Sincelejo,
+sin agregado). Comprobado recorriendo las dos hojas **hasta la última fila**.
+
+Existe además un **`Total 10 ciudades`** en las hojas de general (fila 466) y de
+sexo (fila 406). Está a propósito fuera del tablero: no lo pidió el proyecto.
+Queda anotado aquí para que nadie lo vuelva a descubrir y pregunte, y hay una
+prueba que confirma que no se cuela.
+
+### Las hojas nacionales de fuera de la fuerza y de posición son MENSUALES
+
+`Pob_fuera_fuerza_trabajo_TN` y `Ocupados TN_posición` vienen en serie mensual
+(Ene, Feb, Mar…), mientras las de ciudades vienen en trimestre móvil (Ene-Mar,
+Feb-Abr…). Pegar una mensual en la grilla de trimestres compararía un mes suelto
+contra un promedio de tres.
+
+`mensual_a_trimestre_movil()` las convierte promediando de a tres. **Que eso sea
+legítimo está comprobado, no supuesto:** el módulo general publica el total
+nacional en las dos formas, y promediar tres meses de la hoja mensual reproduce
+la trimestral con diferencia 0,0000 a lo largo de toda la serie. Además, las
+series convertidas se contrastan contra las del módulo general en los 196
+períodos comparables: diferencia máxima 0,07 mil, que es el redondeo de `num()`.
+`verificar.py` mantiene esa comprobación viva.
 
 `verificar.py` comprueba esta matriz. Si alguien deja de leer una de esas
 hojas, la prueba lo caza.
@@ -250,7 +285,7 @@ versión de doble clic se caería en cada render.
 
 ## Qué trae cada anexo
 
-**68 hojas en los cuatro anexos. El ETL lee 13.** Este inventario existe para
+**68 hojas en los cuatro anexos. El ETL lee 15.** Este inventario existe para
 poder decidir qué se puede pedir sin volver a abrir los archivos. `USA` marca
 las que el ETL lee hoy.
 
@@ -265,8 +300,8 @@ las que el ETL lee hoy.
 | | `Total nacional` | lo mismo, serie mensual | nacional | mensual 2001– |
 | | `Total 13 ciudades A.M.` | lo mismo, serie mensual | 13 ciudades | mensual 2001– |
 | | `Total 7 ciudades sin A.M.` | tasas y niveles | 7 ciudades sin A.M. | trim. 2021– |
-| | `Ocupados TN_posición` | posición ocupacional | nacional | mensual 2010– |
-| | `Pob_fuera_fuerza_trabajo_TN` | fuera de la fuerza, por actividad | nacional | mensual 2010– |
+| **USA** | `Ocupados TN_posición` | posición ocupacional | nacional | **mensual** 2010– |
+| **USA** | `Pob_fuera_fuerza_trabajo_TN` | fuera de la fuerza, por actividad | nacional | **mensual** 2010– |
 | | `Ocupados TN_T13_rama` | ramas de actividad CIIU 4 | nacional | mensual 2015– |
 | | `Ocupados TN_TCAB_TRES_rama_Trim` | ramas CIIU 4 | nacional, cab., resto | trim. 2015– |
 | | `Ocupados 23 Ciudades_rama_Trim` | **ramas CIIU 4 por ciudad** | 23 ciudades | trim. 2015– |
@@ -275,6 +310,14 @@ las que el ETL lee hoy.
 | | `Otras_formas_trabajo` | trabajo no remunerado | nacional | mensual 2021– |
 | | `Total_nacional_IML_Sexo` | tasas y niveles por sexo | nacional | mensual 2010– |
 | | `Índice`, `Ficha metodológica`, `Errores relativos` | documentación | — | — |
+
+**El agregado de 23 ciudades vive al final de `Total 23 ciudades A.M. Trim`**
+(fila 485 de 515), escrito `Total 23 ciudades y área metropolitanas`, con
+**ÁREA en singular**. En la fila 466 está `Total 10 ciudades`, que el tablero
+**no** usa.
+
+**Las dos hojas nacionales que se leen vienen en serie MENSUAL**, no en
+trimestre móvil. El ETL las convierte promediando de a tres; ver la regla 5.
 
 ### Sexo — `anexGEIHMLS<trimestre>.xlsx` · 16 hojas
 
@@ -290,6 +333,11 @@ las que el ETL lee hoy.
 | | `FFT 13 Ciud` | **ídem** | 13 ciudades | trim. móvil 2007– |
 | | `Ramas CIIU 4 N` / `Ramas CIIU4 13 Ciud` | ramas por sexo | nacional / 13 ciudades | trim. móvil 2015– |
 | | `Índice`, `Ficha metodológica`, `Código_SAS`, `Errores Relativos` | documentación | — | — |
+
+**El agregado de 23 ciudades vive al final de `Hombres - 23 Ciud` y
+`Mujeres - 23 Ciud`** (fila 423 de 448), después de las ciudades, escrito
+`TOTAL 23 CIUDADES Y A.M.`. Justo antes, en la fila 406, está `TOTAL 10
+CIUDADES`, que el tablero **no** usa.
 
 **Ojo con `FFT 13 Ciud` y `Pos ocup 13 Ciud`:** traen el corte por sexo, pero
 **solo para el agregado**, en bloques HOMBRES y MUJERES. No hay ciudades, así
@@ -343,6 +391,7 @@ Ordenado por lo que aportaría a un tablero centrado en Cali:
 1. **`Ocupados 23 Ciudades_rama_Trim`** (general) — ramas de actividad **por
    ciudad**, desde 2015. Es la única hoja de ramas con desglose por ciudad, así
    que es la que permitiría una sección de estructura sectorial de Cali.
+   *(Las nacionales de fuera de la fuerza y de posición ocupacional ya se leen.)*
 2. **`PoscOcup trim móvil 13 ciudades`** (juventud) — posición ocupacional
    juvenil. Solo agregado de 13 ciudades, no Cali.
 3. **`Pos ocup 13 Ciud`** y **`FFT 13 Ciud`** (sexo) — los cortes por sexo de
@@ -696,5 +745,22 @@ período, agregar y quitar ciudades, y mirarlo en ancho de celular.
 - **Ante una cifra rara, sospecha primero de la fuente.** Los anexos del DANE
   tienen rellenos, cambios de metodología y convenciones inconsistentes de un
   año a otro. Ya aparecieron tres.
+- **Antes de concluir que un dato no existe, agota la búsqueda.** Van tres veces
+  que se dio por inexistente algo que sí estaba, siempre por la misma causa: se
+  busca por etiqueta y el DANE escribe la misma cosa de varias formas. El
+  procedimiento:
+
+  1. **Recorre la hoja completa hasta la última fila**, no hasta donde esperas
+     que terminen los bloques. Los agregados van al final, después de las
+     ciudades: en el anexo general, el de 23 ciudades está en la fila 485 de
+     515; en el de sexo, en la 423 de 448.
+  2. **Lista todas las grafías que aparecen y compáralas** contra la tabla de
+     alias, en vez de asumir que las cubre.
+  3. **Si un módulo no trae un agregado que otros sí, sospecha de la lectura
+     antes que del archivo.** Esa asimetría casi siempre es un bug propio, no
+     una laguna del DANE.
+
+  Los tres errores fueron: leer una sola hoja por módulo, filtrar por nombre
+  literal antes de canonizar, y dejar de recorrer antes del final.
 - **Nada de datos inventados ni de ejemplo.** Si algo no se puede calcular,
   queda vacío y se dice por qué.

@@ -252,41 +252,45 @@ def main():
     # ── Agregados: el hueco que estuvo ahi desde el principio ────────
     #
     # El DANE reparte las MISMAS variables en varias hojas, una por nivel
-    # geografico. El ETL leia una sola hoja por modulo, asi que juventud y sexo
-    # se quedaron sin total nacional ni total de 13 ciudades durante meses sin
-    # que nadie lo notara: el chip de comparacion estaba, y no dibujaba nada.
-    #
-    # "Total 13 ciudades y A.M." es el agregado que usa la comparacion por
-    # defecto, asi que tiene que existir en TODOS los modulos o alguna seccion
-    # abre en blanco.
-    for mod in d["series"]["tm"]:
-        tiene = "Total 13 ciudades y A.M." in d["series"]["tm"][mod]
-        check(f"{mod}: tiene el agregado de 13 ciudades", tiene)
+    # geografico, Y escribe el mismo agregado de varias formas. Las dos cosas
+    # juntas hicieron que se diera por inexistente, tres veces, un dato que si
+    # estaba. Estas pruebas existen para que no vuelva a pasar en silencio.
+    NACIONAL = ("general", "hombres", "mujeres", "juventud", "informalidad",
+                "fuera", "posicion")
+    TRECE = NACIONAL
+    # Total 23 no existe en las hojas de fuera de la fuerza de trabajo (solo
+    # 13 ciudades) ni en la de posicion ocupacional (termina en Sincelejo).
+    # Comprobado recorriendo las dos hojas hasta la ultima fila.
+    VEINTITRES = ("general", "hombres", "mujeres", "juventud", "informalidad")
 
-    # Total nacional: en los cinco modulos que lo publican. Las hojas de fuera
-    # de la fuerza de trabajo y de posicion ocupacional que lee el ETL son de
-    # 13 y 23 ciudades; el nacional vive en otras hojas del mismo anexo, que
-    # hoy no se leen (ver el inventario en CLAUDE.md).
-    for mod in ("general", "hombres", "mujeres", "juventud", "informalidad"):
-        check(f"{mod}: tiene el agregado nacional",
-              "Total nacional" in d["series"]["tm"][mod])
+    for agregado, modulos in (("Total nacional", NACIONAL),
+                              ("Total 13 ciudades y A.M.", TRECE),
+                              ("Total 23 ciudades y A.M.", VEINTITRES)):
+        for mod in modulos:
+            ind = d["series"]["tm"].get(mod, {}).get(agregado, {})
+            vivos = [k for k, v in ind.items() if any(x is not None for x in v)]
+            check(f"{mod}: '{agregado}' existe y trae datos",
+                  len(vivos) >= 1, f"indicadores con dato: {len(vivos)}")
 
-    # Total 23 ciudades: solo donde el DANE lo publica como bloque de datos.
-    # En los anexos general y de sexo NO existe: lo que parece serlo es el
-    # titulo de la hoja. De hecho la hoja que el DANE llama "Total 23 ciudades
-    # A.M." trae como agregado el de 13. No se deriva sumando las 23 ciudades:
-    # seria publicar como oficial una cifra que el DANE no publica.
-    for mod in ("juventud", "informalidad"):
-        check(f"{mod}: tiene el agregado de 23 ciudades",
-              "Total 23 ciudades y A.M." in d["series"]["tm"][mod])
+    # Y que no se colara el agregado de 10 ciudades, que el tablero no usa
+    check("no entro el agregado de 10 ciudades",
+          not [c for c in d["ciudades"] if "10 ciudades" in normalizar(c)],
+          str([c for c in d["ciudades"] if "10" in c]))
 
-    # Que el agregado exista no basta: tiene que traer datos. Un bloque mal
-    # acotado devuelve la clave con todas las series vacias.
-    for mod in d["series"]["tm"]:
-        ind = d["series"]["tm"][mod].get("Total 13 ciudades y A.M.", {})
-        vivos = [k for k, v in ind.items() if any(x is not None for x in v)]
-        check(f"{mod}: el agregado de 13 ciudades trae datos",
-              len(vivos) >= 4, f"indicadores con dato: {len(vivos)}")
+    # Las hojas nacionales de fuera de la fuerza y de posicion vienen en serie
+    # MENSUAL, y el ETL las pasa a trimestre movil promediando de a tres.
+    # El modulo general publica las mismas dos variables a nivel nacional ya en
+    # trimestre movil, asi que sirven de contraste independiente: si la
+    # conversion se rompe, estas dos pruebas lo cazan.
+    for mod, clave, etq in (("fuera", "ffft", "poblacion fuera de la fuerza"),
+                            ("posicion", "ocupados", "ocupados")):
+        conv = d["series"]["tm"][mod]["Total nacional"][clave]
+        ofic = d["series"]["tm"]["general"]["Total nacional"][clave]
+        difs = [abs(a - b) for a, b in zip(ofic, conv)
+                if a is not None and b is not None]
+        check(f"{mod}: el nacional convertido de mensual reproduce el oficial ({etq})",
+              difs and max(difs) < 0.15,
+              f"{len(difs)} periodos, diferencia maxima {max(difs) if difs else '-'}")
 
     # Un indicador de nivel que no este en NIVELES desaparece del promedio anual
     # sin avisar: la serie existe en trimestre movil y en anual no. Paso justo

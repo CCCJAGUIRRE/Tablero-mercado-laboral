@@ -106,10 +106,15 @@ def _alias_agregados() -> dict:
     tabla = {}
     for canon, variantes in (
         ("Total nacional", ["total nacional", "nacional"]),
+        # "area metropolitanas" en singular no es un descuido de esta tabla:
+        # es como lo escribe el anexo general en su bloque de la fila 485.
+        # Los otros tres anexos lo escriben en plural o con la sigla.
         ("Total 13 ciudades y A.M.", ["13 ciudades y areas metropolitanas",
+                                      "13 ciudades y area metropolitanas",
                                       "13 ciudades y a.m.", "13 ciudades y a.m",
                                       "13 areas"]),
         ("Total 23 ciudades y A.M.", ["23 ciudades y areas metropolitanas",
+                                      "23 ciudades y area metropolitanas",
                                       "23 ciudades y a.m.", "23 ciudades y a.m",
                                       "23 areas"]),
     ):
@@ -295,19 +300,51 @@ def cargar_hoja(ruta: Path, hoja: str):
     return filas
 
 
+def fila_encabezado_meses(filas):
+    """Como fila_encabezado(), pero para las hojas de serie mensual."""
+    for i, f in enumerate(filas):
+        if f and any(x and norm(x) == "ene" for x in f[:4]):
+            return i
+    raise ValueError("no se encontro la fila de meses")
+
+
+def fila_encabezado(filas):
+    """La fila que rotula los trimestres. Es el ancla para contar periodos.
+
+    Antes se contaba desde "el primer bloque + 2 filas". Dejo de servir cuando
+    detectar_bloques() empezo a canonizar: el subtitulo de la hoja tambien
+    resuelve a un agregado y pasa a ser el primer bloque, dos filas mas arriba
+    de donde estaban los meses. Buscar la fila por su contenido no depende de
+    donde empiecen los bloques.
+    """
+    for i, f in enumerate(filas):
+        if f and any(x and norm(x).startswith("ene - mar") for x in f[:4]):
+            return i
+    raise ValueError("no se encontro la fila de trimestres")
+
+
 def detectar_bloques(filas, nombres_validos):
-    """Devuelve [(fila_indice, nombre_canonico)] de cada bloque de ciudad."""
+    """Devuelve [(fila_indice, nombre_canonico)] de cada bloque de ciudad.
+
+    Canoniza ANTES de comparar. Antes filtraba contra NOMBRES_CIUDAD tal cual y
+    solo despues pasaba por titulo_ciudad(), asi que la tabla de alias no
+    llegaba a actuar: cualquier grafia que no estuviera literalmente en la
+    lista se descartaba en silencio. Por eso el agregado de 23 ciudades del
+    anexo general -- que dice "area metropolitanas", en singular -- y el del
+    anexo de sexo -- que dice "TOTAL 23 CIUDADES Y A.M." -- no se leian, aunque
+    la tabla de alias ya los resolvia.
+    """
     bloques = []
-    validos = {norm(n) for n in nombres_validos}
+    validos = {norm(titulo_ciudad(n)) for n in nombres_validos}
     for i, fila in enumerate(filas):
         if not fila:
             continue
         v = fila[0]
         if v is None:
             continue
-        nv = norm(v)
-        if nv in validos:
-            bloques.append((i, titulo_ciudad(v)))
+        canon = titulo_ciudad(v)
+        if norm(canon) in validos:
+            bloques.append((i, canon))
     return bloques
 
 
@@ -364,6 +401,7 @@ MAPA_GENERAL = {
 }
 
 NOMBRES_CIUDAD = [
+    "Total nacional",
     "Total 13 ciudades y áreas metropolitanas",
     "Total 23 ciudades y áreas metropolitanas",
     "Bogotá D.C.", "Medellín A.M.", "Cali A.M.", "Barranquilla A.M.",
@@ -426,14 +464,37 @@ def bloque_con_nombre(filas, etiqueta, mapa, n_per, col_ini=1):
     return {}
 
 
+def mensual_a_trimestre_movil(serie):
+    """Convierte una serie MENSUAL en trimestre movil promediando de a tres.
+
+    Las hojas nacionales de "fuera de la fuerza de trabajo" y de "posicion
+    ocupacional" vienen en serie mensual, mientras las de ciudades vienen en
+    trimestre movil. Pegar una mensual en la grilla de trimestres compararia un
+    mes suelto contra un promedio de tres: un error de verdad, no cosmetico.
+
+    Que esto sea legitimo esta COMPROBADO, no supuesto: el modulo general
+    publica el total nacional en las dos formas, y promediar tres meses de la
+    hoja mensual reproduce la hoja trimestral con diferencia 0,0000 en toda la
+    serie. verificar.py mantiene esa comprobacion viva.
+
+    Un trimestre con algun mes faltante queda vacio, por la misma razon que el
+    promedio anual: seria el promedio de los meses que sobrevivieron.
+    """
+    salida = []
+    for i in range(len(serie) - 2):
+        tramo = serie[i:i + 3]
+        salida.append(round(sum(tramo) / 3, 2)
+                      if all(v is not None for v in tramo) else None)
+    return salida
+
+
 def parse_general(ruta: Path):
     filas = cargar_hoja(ruta, "Total 23 ciudades A.M. Trim")
     bloques = detectar_bloques(filas, NOMBRES_CIUDAD)
     if not bloques:
         sys.exit("[ERROR] No se detectaron bloques de ciudad en el modulo general.")
 
-    # fila de encabezado de trimestres = fila del bloque + 3
-    n_per = contar_periodos(filas, bloques[0][0] + 3)
+    n_per = contar_periodos(filas, fila_encabezado(filas))
     periodos = periodos_desde(ANCLA_TM, n_per)
 
     datos = {}
@@ -492,7 +553,7 @@ def parse_sexo(ruta: Path):
         filas = cargar_hoja(ruta, hoja)
         bloques = detectar_bloques(filas, NOMBRES_CIUDAD)
         if n_per is None:
-            n_per = contar_periodos(filas, bloques[0][0] + 2)
+            n_per = contar_periodos(filas, fila_encabezado(filas))
             periodos = periodos_desde(ANCLA_TM, n_per)
         d = {}
         for k, (fi, nombre) in enumerate(bloques):
@@ -547,7 +608,7 @@ HOJAS_JOVEN_AGREGADO = (
 def parse_juventud(ruta: Path):
     filas = cargar_hoja(ruta, "23 ciudades trim móvil")
     bloques = detectar_bloques(filas, NOMBRES_CIUDAD)
-    n_per = contar_periodos(filas, bloques[0][0] + 2)
+    n_per = contar_periodos(filas, fila_encabezado(filas))
     periodos = periodos_desde(ANCLA_TM, n_per)
     datos = {}
     for k, (fi, nombre) in enumerate(bloques):
@@ -677,6 +738,22 @@ MAPA_FUERA = {
 }
 
 
+def _nacional_mensual(ruta, hoja, etiqueta, mapa, n_per):
+    """Lee un bloque nacional de una hoja MENSUAL y lo pasa a trimestre movil."""
+    filas = cargar_hoja(ruta, hoja)
+    hdr = fila_encabezado_meses(filas)
+    col = next(c for c, x in enumerate(filas[hdr]) if x and norm(x) == "ene")
+    n_meses = contar_periodos(filas, hdr, col)
+    b = bloque_con_nombre(filas, etiqueta, mapa, n_meses, col)
+    salida = {}
+    for clave, serie in b.items():
+        tm = mensual_a_trimestre_movil(serie)
+        # La mensual arranca en Ene 2010 y la grilla de estas hojas en
+        # Ene-Mar 2010, asi que los indices ya coinciden uno a uno.
+        salida[clave] = tm[:n_per] + [None] * max(0, n_per - len(tm))
+    return salida
+
+
 def parse_fuera(ruta: Path):
     """Poblacion fuera de la fuerza de trabajo, por tipo de actividad."""
     filas = cargar_hoja(ruta, "Pob_fuera_fuerza_trab_T13ciud")
@@ -696,6 +773,13 @@ def parse_fuera(ruta: Path):
         # propio bloque, asi que el primero sale vacio. Se descarta.
         if b:
             datos[nombre] = b
+    nac = _nacional_mensual(ruta, "Pob_fuera_fuerza_trabajo_TN", "Total nacional",
+                            MAPA_FUERA, n_per)
+    if nac:
+        datos["Total nacional"] = nac
+    else:
+        print("  [AVISO] fuera: no se encontro el bloque nacional")
+
     print(f"  fuera de la ft: {len(datos)} ciudades x {n_per} trimestres moviles "
           f"({periodos[0][1]} -> {periodos[-1][1]})")
     return periodos, datos
@@ -738,6 +822,13 @@ def parse_posicion(ruta: Path):
         b = indicadores_del_bloque(filas, fi, ff, MAPA_POSICION, n_per, col_ini)
         if b:
             datos[nombre] = b
+    nac = _nacional_mensual(ruta, "Ocupados TN_posición", "Total nacional",
+                            MAPA_POSICION, n_per)
+    if nac:
+        datos["Total nacional"] = nac
+    else:
+        print("  [AVISO] posicion: no se encontro el bloque nacional")
+
     print(f"  posicion ocup.: {len(datos)} ciudades x {n_per} trimestres moviles "
           f"({periodos[0][1]} -> {periodos[-1][1]})")
     return periodos, datos

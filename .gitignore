@@ -10,3 +10,7 @@ __pycache__/
 # en un repo que se hace público para GitHub Pages sería redistribuirlas.
 # Los originales viven en marca/fuentes/ en local. Ver docs/assets/fonts/LEEME.txt
 marca/fuentes/
+
+# Archivos de bloqueo que deja Excel al abrir un anexo. localizar_anexos() ya
+# los ignora, pero no tienen por qué entrar al repositorio.
+~$*
