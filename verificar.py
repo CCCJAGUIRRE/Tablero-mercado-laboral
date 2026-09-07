@@ -325,8 +325,37 @@ def main():
         check(f"{mod}: ningun nivel se pierde en el promedio anual",
               not faltan, f"solo en trimestre movil: {sorted(faltan)}")
 
-    # ── 8. Rangos plausibles ─────────────────────────────────────────
-    print("\n8. Los numeros caen donde deben")
+    # ── Coherencia entre el tablero y los datos ──────────────────────
+    #
+    # verificar.py prueba datos.json, no la interfaz. Pero hay una cosa que si
+    # se puede comprobar sin abrir un navegador, y es justo la que se rompe al
+    # quitar o agregar una seccion: que cada entrada del menu tenga su vista, y
+    # al reves. Un V.algo sin entrada en SECCIONES es codigo muerto; una
+    # entrada sin V.algo es un boton que no pinta nada.
+    print("\n8. El menu y las vistas del tablero coinciden")
+    html = (RAIZ / "docs" / "index.html").read_text(encoding="utf-8")
+    bloque = re.search(r"const SECCIONES = \[(.*?)\n\];", html, re.S)
+    if not bloque:
+        check("se encontro la lista de secciones en index.html", False)
+    else:
+        menu = re.findall(r'\{id:"(\w+)"', bloque.group(1))
+        vistas = set(re.findall(r"^V\.(\w+)\s*=\s*\(\)", html, re.M))
+        check("cada seccion del menu tiene su vista",
+              set(menu) <= vistas, f"sin vista: {sorted(set(menu) - vistas)}")
+        check("no quedan vistas huerfanas, sin entrada en el menu",
+              vistas <= set(menu), f"sin entrada: {sorted(vistas - set(menu))}")
+        check("el menu no repite secciones", len(menu) == len(set(menu)))
+        print(f"  ...   {len(menu)} secciones: {', '.join(menu)}")
+
+    # Y que los modulos que el tablero pide existan en los datos. Una seccion
+    # que llame a un modulo inexistente abre en blanco y no avisa.
+    usados = set(re.findall(r'S\("(\w+)",', html)) | set(re.findall(r'mod:"(\w+)"', html))
+    disponibles = set(d["series"]["tm"])
+    check("todos los modulos que usa el tablero existen en datos.json",
+          usados <= disponibles, f"faltan: {sorted(usados - disponibles)}")
+
+    # ── 9. Rangos plausibles ─────────────────────────────────────────
+    print("\n9. Los numeros caen donde deben")
     for k, lo, hi in (("td", 3, 40), ("to", 30, 75), ("tgp", 45, 80),
                       ("pct_pet", 60, 90)):
         vals = [v for v in gen_tm[k] if v is not None]

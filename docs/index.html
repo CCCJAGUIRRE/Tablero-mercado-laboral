@@ -239,26 +239,6 @@ main{padding:26px 26px 60px}
 .mini-seg button[aria-pressed="true"]{background:var(--superficie);color:var(--azul-sereno);font-weight:700;box-shadow:0 1px 3px rgba(18,23,107,.12)}
 .leyenda{display:flex;flex-wrap:wrap;gap:11px;margin-top:9px;font-size:12.5px;color:var(--tinta-2)}
 
-/* Descargas. Cada fila es un archivo que alguien se va a llevar y despues va
-   a citar, asi que lleva el nombre exacto con el que lo sirve el DANE. */
-.g-1{grid-template-columns:minmax(0,1fr)}
-.desc-lista{list-style:none;display:grid;gap:7px;margin-top:5px}
-.desc-fila{
-  display:flex;align-items:center;gap:12px;padding:10px 13px;width:100%;
-  border:1px solid var(--linea);border-radius:11px;background:var(--blanco-maceta);
-  text-decoration:none;color:inherit;transition:border-color .15s,background .15s;
-  /* font y text-align explicitos porque el CSV es un <button> y no los hereda */
-  font:inherit;text-align:left;cursor:pointer;
-}
-.desc-fila:hover,.desc-fila:focus-visible{border-color:var(--azul-farallones);background:var(--a50)}
-.desc-fila .ico{flex:0 0 auto;width:26px;height:26px}
-.desc-fila .txt{flex:1;min-width:0}
-.desc-fila .txt b{display:block;font-size:13.5px;color:var(--azul-sereno);font-weight:700}
-/* overflow-wrap:anywhere para que el nombre del anexo no desborde en celular */
-.desc-fila .txt span{display:block;font-size:11.5px;color:var(--tinta-3);overflow-wrap:anywhere}
-.desc-fila .flecha{flex:0 0 auto;color:var(--tinta-3);font-size:15px}
-.desc-fila:hover .flecha{color:var(--azul-pacifico)}
-@media(max-width:760px){.desc-fila{padding:9px 11px;gap:9px}}
 .leyenda span{display:inline-flex;align-items:center;gap:6px}
 /* Detalle del reparto de posición ocupacional */
 .reparto{margin-top:11px;display:grid;gap:5px;font-size:12.5px}
@@ -411,7 +391,6 @@ const SECCIONES = [
   {id:"juventud",  nom:"Juventud",            tema:"violeta",    desc:"Mercado laboral de la población entre 15 y 28 años"},
   {id:"fuera",     nom:"Fuera de la fuerza de trabajo",tema:"feijo", desc:"Población en edad de trabajar que no busca empleo ni lo tiene"},
   {id:"ciudades",  nom:"Comparativo ciudades",tema:"viche",      desc:"Cali A.M. frente a las 23 ciudades y áreas metropolitanas"},
-  {id:"datos",     nom:"Fuentes y metodología",tema:"azul",       desc:"Origen de los datos, definiciones y advertencias de lectura"},
 ];
 
 /* `claro` es el tercer tono que piden las morfologías: el arte original
@@ -907,27 +886,6 @@ function panel(titulo,sub,cuerpo,extra="",nota=""){
   </section>`;
 }
 
-/* Hoja de calculo. Extremos redondeados, como pide el manual. */
-function icoHoja(color){
-  return `<svg class="ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M6 2.8h7.4L19 8.4V21a1.2 1.2 0 0 1-1.2 1.2H6A1.2 1.2 0 0 1 4.8 21V4A1.2 1.2 0 0 1 6 2.8Z"
-      stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/>
-    <path d="M13.2 3v5.2H18.6" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M8.2 13h7.6M8.2 16.2h7.6M8.2 19.4h4.4" stroke="${color}" stroke-width="1.6" stroke-linecap="round"/>
-  </svg>`;
-}
-
-/* Una fila de descarga. Con href es un enlace al DANE; sin href es el CSV,
-   que se genera en el navegador y por eso tiene que ser un boton. */
-function filaDescarga({titulo,detalle,href,accion,color}){
-  const dentro=`${icoHoja(color||"var(--azul-pacifico)")}
-    <span class="txt"><b>${esc(titulo)}</b><span>${esc(detalle)}</span></span>
-    <span class="flecha" aria-hidden="true">${href?"\u2197":"\u2193"}</span>`;
-  return "<li>"+(href
-    ? `<a class="desc-fila" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${dentro}</a>`
-    : `<button class="desc-fila" type="button" data-descarga="${esc(accion)}">${dentro}</button>`)+"</li>";
-}
-
 function leyenda(items){
   return `<div class="leyenda">${items.map(i=>`<span><i style="background:${i.color}"></i>${esc(NOM(i.nombre))}</span>`).join("")}</div>`;
 }
@@ -1339,75 +1297,6 @@ V.ciudades.pintar=()=>{
     const b=e.target.closest("button"); if(!b) return;
     indCiudades=b.dataset.ind; render();
   });
-};
-
-V.datos=()=>`
-  ${cabecera("datos")}
-  <div class="grid g-2">
-    ${panel("De dónde salen los datos","Anexos mensuales de la GEIH",`
-      <ul style="padding-left:19px;line-height:1.85;font-size:14px">
-        <li><b>Panorama general:</b> anexo de mercado laboral, hoja de 23 ciudades y áreas metropolitanas.</li>
-        <li><b>Género:</b> anexo de mercado laboral por sexo, hojas de hombres y mujeres.</li>
-        <li><b>Informalidad:</b> anexo de empleo informal y seguridad social. Serie desde ${esc(D.meta.inicio_informalidad)}.</li>
-        <li><b>Juventud:</b> anexo de mercado laboral de la juventud, 15 a 28 años.</li>
-      </ul>`)}
-    ${panel("Cómo se calcula el promedio anual","Nota metodológica",`
-      <p style="font-size:14px;line-height:1.7">El promedio del año se arma con los cuatro trimestres
-      móviles que <b>no se traslapan</b>: Ene-Mar, Abr-Jun, Jul-Sep y Oct-Dic. Así cada mes del año
-      entra exactamente una vez.</p>
-      <p style="font-size:14px;line-height:1.7;margin-top:9px">Los niveles de población se promedian y
-      las tasas se vuelven a calcular a partir de esos niveles. Promediar tasas directamente sesgaría
-      el resultado hacia los trimestres con menos población.</p>
-      <p class="nota">Comprobación: para Cali A.M. en 2025 este método da una tasa de desempleo de 8,75%
-      y 1.115.000 ocupados, prácticamente idéntico a lo que publica el DANE para el año completo.</p>
-      ${(D.meta.anios_parciales||[]).length?`<p class="nota"><b>Año en curso:</b>
-      ${D.meta.anios_parciales.join(", ")} todavía no tiene los cuatro trimestres, así que se promedia
-      con los disponibles y aparece marcado en el selector de período.</p>`:""}`)}
-  </div>
-  <div class="grid g-1">
-    ${panel("Advertencias de lectura","Antes de citar una cifra",`
-      <ul style="padding-left:19px;line-height:1.85;font-size:14px">
-        <li>Las poblaciones vienen en miles y aquí se muestran ya convertidas a personas.</li>
-        <li>Toda variable cuya proporción respecto a la fuerza de trabajo sea menor al 10% tiene un error de muestreo superior al 5%, el límite de calidad que admite el DANE.</li>
-        <li>Entre 2010 y 2020 la información ya incorpora los ajustes de población del cambio de marco de 2021.</li>
-        <li>Cali A.M. incluye a Cali y Yumbo.</li>
-      </ul>`)}
-    ${panel("Descargas","Los archivos originales y los datos ya procesados",`
-      <ul class="desc-lista">
-        ${ETIQUETAS_MODULO.map(([mod,nom,det])=>{
-          const a=D.meta.archivos[mod];
-          // Se muestra el nombre con que lo sirve el DANE, no el que tenga
-          // el archivo local: es el que va a recibir quien haga clic, y el
-          // que tendrá que citar. Pueden diferir si alguien lo bajó a mano.
-          return a ? filaDescarga({
-            titulo:nom,
-            detalle:a.url ? a.url.split("/").pop() : a.archivo+" — enlace no disponible",
-            href:a.url||"",
-          }) : "";
-        }).join("")}
-        ${filaDescarga({
-          titulo:"Datos de esta vista, en CSV",
-          detalle:"Cali A.M. y las ciudades que tengas comparadas, en el modo y período de ahora",
-          accion:"csv", color:"var(--verde-feijo)",
-        })}
-      </ul>
-      <p class="nota">Los cuatro primeros son los anexos tal como los publica el DANE, sin tocar. Si citas
-      una cifra de este tablero, ese es el documento de respaldo.</p>
-      <p class="nota">El CSV usa punto y coma y coma decimal, para que Excel en español lo abra bien.</p>`)}
-  </div>`;
-
-/* Nombre y descripción de cada módulo en la lista de descargas. Va aparte
-   porque el orden importa: es el mismo de las secciones del tablero. */
-const ETIQUETAS_MODULO=[
-  ["general","Anexo de mercado laboral","23 ciudades y áreas metropolitanas"],
-  ["sexo","Anexo de mercado laboral por sexo","Hombres y mujeres"],
-  ["informalidad","Anexo de empleo informal y seguridad social","Serie desde 2021"],
-  ["juventud","Anexo de mercado laboral de la juventud","15 a 28 años"],
-];
-
-V.datos.pintar=()=>{
-  document.querySelectorAll('[data-descarga="csv"]').forEach(b=>
-    b.addEventListener("click",descargarCSV));
 };
 
 function cabecera(id){

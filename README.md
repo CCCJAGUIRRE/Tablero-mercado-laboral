@@ -246,17 +246,50 @@ apuntando a la misma cifra cuando lleguen datos nuevos.
 
 | Sección | Qué muestra | Desde |
 |---|---|---|
-| Resumen | Indicadores principales de Cali A.M. y ranking de ciudades | 2007 |
+| Resumen | Las tres tasas de Cali A.M., composición de la fuerza de trabajo y ranking | 2007 |
 | Panorama general | Desempleo, ocupación, participación, subocupación y niveles | 2007 |
 | Brechas de género | Los mismos indicadores separados por sexo, más las brechas | 2007 |
-| Informalidad | Proporción y composición formal/informal | 2021 |
+| Informalidad | Proporción, composición formal/informal y posición ocupacional | 2021 |
 | Juventud | Mercado laboral de 15 a 28 años | 2007 |
+| Fuera de la fuerza de trabajo | Quién no busca empleo ni lo tiene, y en qué ocupa el tiempo | 2010 |
 | Comparativo ciudades | Ranking, puesto de Cali en el tiempo y tabla completa | 2007 |
-| Datos y método | Fuentes, metodología y advertencias de lectura | — |
+
+**El tablero no lleva pestaña de metodología.** Los visores de la CCC no la
+usan, así que la documentación vive aquí y en `CLAUDE.md`, no en el sitio
+público. Lo que sí queda en el tablero son las notas al pie de cada gráfica
+que explican un dato concreto — el corte de subocupación de 2020, el arranque
+de la informalidad en 2021, la definición de la brecha de género.
 
 **Controles:** agregación temporal (trimestre móvil o promedio anual), período,
 año de inicio de la serie, y hasta siete ciudades de comparación. Además,
 descarga de los datos en CSV y exportación a PDF.
+
+### De dónde sale cada sección
+
+| Sección | Anexo del DANE | Hoja |
+|---|---|---|
+| Resumen, Panorama, Comparativo | general | `Total 23 ciudades A.M. Trim`, `Total nacional Trim` |
+| Brechas de género | sexo (MLS) | `Hombres - 23 Ciud`, `Mujeres - 23 Ciud`, `P y T N`, `P y T 13 Ciud` |
+| Informalidad · proporción y niveles | informalidad (EISS) | `Prop informalidad`, `Ciudades` |
+| Informalidad · posición ocupacional | general | `Ocupados 23 Ciudades_pos_Trim`, `Ocupados TN_posición` |
+| Juventud | juventud (MLJ) | `23 ciudades trim móvil`, `13 ciudades trimestre móvil`, ` Tnal trimestre móvil` |
+| Fuera de la fuerza de trabajo | general | `Pob_fuera_fuerza_trab_T13ciud`, `Pob_fuera_fuerza_trabajo_TN` |
+
+El inventario completo de las 68 hojas, con cuáles se usan y qué trae cada una,
+está en `CLAUDE.md`.
+
+### Una cifra que calculamos nosotros
+
+**La proporción de población fuera de la fuerza de trabajo** (`pct_ffft`) no la
+publica el DANE: se deriva dividiendo la población fuera de la fuerza entre la
+población en edad de trabajar, dos niveles que sí publica.
+
+Existe porque comparar el nivel absoluto de Cali contra el agregado de 13
+ciudades no dice nada — el agregado es diez veces más grande y aplasta la serie
+de Cali contra el eje. La proporción sí es comparable entre ciudades.
+
+Es la única cifra derivada del tablero. Todo lo demás sale tal cual de los
+anexos, o es un promedio anual calculado con la regla de más abajo.
 
 ### El promedio anual
 

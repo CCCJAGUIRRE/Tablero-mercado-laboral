@@ -328,6 +328,43 @@ versión de doble clic se caería en cada render.
 - Los NINI quedaron fuera a propósito: el DANE solo los publica a nivel
   nacional y el foco es Cali.
 - Cali A.M. incluye a Cali y Yumbo.
+- Toda variable cuya proporción respecto a la fuerza de trabajo sea menor al
+  10% tiene un error de muestreo superior al 5%, que es el límite de calidad
+  que admite el DANE. Vale sobre todo para las posiciones ocupacionales
+  pequeñas: jornalero, trabajador familiar sin remuneración.
+- Entre 2010 y 2020 la información ya incorpora los ajustes de población del
+  cambio de marco de 2021.
+
+### 8. Una sola cifra la calculamos nosotros
+
+**`pct_ffft`, la proporción de población fuera de la fuerza de trabajo**, no la
+publica el DANE. Se deriva en el ETL dividiendo `ffft` entre `pet`, dos niveles
+que sí publica, sobre el módulo general, que trae las 23 ciudades.
+
+Existe porque comparar el nivel absoluto de Cali contra el agregado de 13
+ciudades no dice nada: el agregado es diez veces más grande y aplasta la serie
+de Cali contra el eje. La proporción sí es comparable entre ciudades.
+
+**Es la única cifra derivada del tablero.** Todo lo demás sale tal cual de los
+anexos, o es un promedio anual calculado con la regla 2. Si aparece la
+tentación de derivar otra, que quede documentada aquí igual que esta, y con la
+misma pregunta contestada antes: ¿por qué no basta con lo que publica el DANE?
+
+### 9. El tablero no lleva pestaña de metodología
+
+Los visores de la CCC no la usan, así que **la documentación metodológica vive
+en el README y en este archivo, no en el sitio público**. Hubo una sección
+"Fuentes y metodología" y se quitó por eso.
+
+Lo que sí se queda en el tablero son **las notas al pie de cada gráfica que
+explican un dato concreto**: el corte de subocupación de 2020, el arranque de
+la informalidad en 2021, la definición de la brecha de género, la dirección del
+ranking. Esas son de lectura, no de método — sin ellas alguien malinterpreta la
+cifra que está viendo.
+
+El criterio para decidir si una nota se queda: **¿ayuda a leer bien el número
+que tiene delante, o explica cómo trabajamos?** Lo primero se queda, lo segundo
+va a la documentación.
 
 ---
 
@@ -778,7 +815,7 @@ python etl.py && python verificar.py
 
 Y abrir el tablero de verdad en un navegador. Los errores que importan —
 etiquetas encimadas, series que no pintan, paneles vacíos — no salen en la
-consola. Recorrer las ocho secciones en los dos modos temporales, cambiar
+consola. Recorrer las siete secciones en los dos modos temporales, cambiar
 período, agregar y quitar ciudades, y mirarlo en ancho de celular.
 
 ---
