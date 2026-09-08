@@ -385,7 +385,7 @@ const FOCO = "Cali A.M.";
    no ciudades. Con Cali dentro, las otras son 22. */
 const SECCIONES = [
   {id:"resumen",   nom:"Resumen",             tema:"azul",       desc:"Principales indicadores del mercado laboral de Cali A.M."},
-  {id:"panorama",  nom:"Panorama general",    tema:"feijo",      desc:"Ocupación, desempleo y participación desde 2007"},
+  {id:"panorama",  nom:"Panorama general",    tema:"feijo",      desc:"Evolución de los indicadores laborales de Cali A.M. desde 2007"},
   {id:"genero",    nom:"Brechas de género",   tema:"magenta",    desc:"Indicadores laborales desagregados por sexo y brechas entre hombres y mujeres"},
   {id:"informal",  nom:"Informalidad",        tema:"chontaduro", desc:"Proporción y composición del empleo informal desde 2021"},
   {id:"juventud",  nom:"Juventud",            tema:"violeta",    desc:"Mercado laboral de la población entre 15 y 28 años"},
@@ -953,7 +953,7 @@ V.resumen=()=>{
     ${hayInf?kpi({k:"prop_informalidad",t:"Informalidad",mod:"informalidad"}):kpi({k:"ts",t:"Subocupación"})}
   </div>
   <div class="grid g-23">
-    ${panel("Las tres tasas de Cali A.M.","Desempleo, ocupación y participación",
+    ${panel("Desempleo, ocupación y participación","Cali A.M. · trayectoria de cada tasa",
       `<div id="g-res-tasas"></div><div id="l-res-tasas"></div>`)}
     ${panel("Composición de la fuerza de trabajo","Cali A.M. · "+p,`<div id="g-res-anillo"></div><div id="l-res-anillo"></div>`)}
   </div>
@@ -1013,16 +1013,16 @@ V.panorama=()=>`
     ${kpi({k:"pet",t:"Población en edad de trabajar"})}
   </div>
   <div class="grid g-2">
-    ${panel("Tasa de desempleo","Comparativa entre ciudades",`<div id="g-pan-td"></div><div id="l-pan"></div>`)}
+    ${panel("Tasa de desempleo","Comparativa entre ciudades",`<div id="g-pan-td"></div><div id="l-pan"></div>`,"",
+      "La tasa de desempleo se calcula sobre la fuerza de trabajo.")}
     ${panel("Tasa de ocupación","Ocupados sobre población en edad de trabajar",`<div id="g-pan-to"></div>`)}
     ${panel("Tasa global de participación","Fuerza de trabajo sobre población en edad de trabajar",`<div id="g-pan-tgp"></div>`)}
     ${panel("Tasa de subocupación","Quienes quieren y pueden trabajar más",`<div id="g-pan-ts"></div>`,"",
-      "El corte entre marzo y septiembre de 2020 no es una caída: la pandemia interrumpió la medición de subocupación y el DANE no publicó el dato.")}
+      "Sin dato entre marzo y septiembre de 2020 por interrupción de la medición de subocupación durante la pandemia.")}
   </div>
   <div class="grid g-23">
     ${panel("Ocupados y desocupados en Cali A.M.","Niveles en personas",`<div id="g-pan-niv"></div><div id="l-pan-niv"></div>`)}
-    ${panel("Estructura del mercado laboral","Cali A.M. · "+P().etiquetas[iPer],`<div id="g-pan-est"></div>`,"",
-      "La tasa de desempleo se calcula sobre la fuerza de trabajo, no sobre el total de población en edad de trabajar.")}
+    ${panel("Estructura del mercado laboral","Cali A.M. · "+P().etiquetas[iPer],`<div id="g-pan-est"></div>`)}
   </div>`;
 V.panorama.pintar=()=>{
   ["td","to","tgp","ts"].forEach(k=>pintarComparativa("g-pan-"+k,"general",k,"%"));
@@ -1097,7 +1097,7 @@ V.informal=()=>`
       `<div id="g-inf-pos"></div><div id="l-inf-pos"></div>`)}
     ${panel("Posición ocupacional hoy",`Cali A.M. · ${P().etiquetas[iPer]}`,
       `<div id="g-inf-pos-hoy"></div>`,"",
-      "El trabajo por cuenta propia es la posición que más pesa en la informalidad.")}
+      "«Otros» agrupa empleado del gobierno, empleado doméstico, patrón o empleador, trabajador familiar sin remuneración y jornalero.")}
   </div>
   <div class="grid">
     ${panel("Informalidad entre ciudades",`23 ciudades y áreas metropolitanas · ${P().etiquetas[iPer]}`,`<div id="g-inf-rank"></div>`,"",
@@ -1170,7 +1170,7 @@ V.juventud=()=>`
   <div class="grid g-2">
     ${panel("Desempleo juvenil","Personas de 15 a 28 años · comparativa entre ciudades",`<div id="g-juv-td"></div><div id="l-juv"></div>`)}
     ${panel("Jóvenes frente al total","Cali A.M. · tasa de desempleo",`<div id="g-juv-vs"></div><div id="l-juv-vs"></div>`,"",
-      "La distancia entre las dos líneas es la penalidad de entrada al mercado laboral que enfrentan los jóvenes.")}
+      "La distancia entre las dos líneas es la diferencia en puntos porcentuales entre el desempleo juvenil y el del total.")}
     ${panel("Ocupación juvenil","Ocupados sobre jóvenes en edad de trabajar",`<div id="g-juv-to"></div>`)}
     ${panel("Participación juvenil","Tasa global de participación 15 a 28 años",`<div id="g-juv-tgp"></div>`)}
   </div>
@@ -1212,12 +1212,12 @@ V.fuera=()=>`
       `<div id="g-ffft-tot"></div><div id="l-ffft"></div>`)}
     ${panel("En qué se ocupa ese tiempo",`Cali A.M. · ${P().etiquetas[iPer]}`,
       `<div id="g-ffft-hoy"></div>`,"",
-      "Oficios del hogar recae de forma muy desigual entre hombres y mujeres: la sección de brechas de género lo muestra por el otro lado, el de quienes sí participan.")}
+      "«Otros» reúne a personas con incapacidad permanente para trabajar, rentistas, pensionadas y jubiladas.")}
   </div>
   <div class="grid">
     ${panel("Composición a lo largo del tiempo","Cali A.M. · por tipo de actividad",
       `<div id="g-ffft-comp"></div><div id="l-ffft-comp"></div>`,"",
-      "La serie de esta hoja del DANE arranca en 2010, no en 2007 como el resto del tablero.")}
+      "La serie de esta hoja del DANE arranca en 2010.")}
   </div>`;
 
 V.fuera.pintar=()=>{
@@ -1259,7 +1259,7 @@ V.ciudades=()=>{
     ${panel("Ranking del indicador",`23 ciudades y áreas metropolitanas · ${P().etiquetas[iPer]}`,
       `<div id="g-ciu-rank"></div>`,`<div class="mini-seg" id="seg-ind">${opts}</div>`)}
     ${panel("Posición de Cali A.M.","Puesto en el ranking a lo largo del tiempo",`<div id="g-ciu-pos"></div>`,"",
-      "Puesto 1 = el valor más alto entre las 23 ciudades. Para desempleo, subocupación e informalidad, subir en el ranking es una mala señal.")}
+      "Puesto 1 = el valor más alto entre las 23 ciudades y áreas metropolitanas.")}
   </div>
   <div class="grid">
     ${panel("Tabla comparativa",`Todos los indicadores · ${P().etiquetas[iPer]}`,`<div class="tabla-env" id="t-ciu"></div>`)}

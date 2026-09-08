@@ -366,6 +366,34 @@ El criterio para decidir si una nota se queda: **¿ayuda a leer bien el número
 que tiene delante, o explica cómo trabajamos?** Lo primero se queda, lo segundo
 va a la documentación.
 
+**Y cómo se redacta: las notas afirman qué es el dato. Nunca explican qué no
+es, ni por qué no es de otra forma.** Una nota defensiva delata que quien la
+escribió se estaba anticipando a una objeción, y le pasa esa duda al lector.
+
+```
+no:  "El corte de 2020 no es una caída: la pandemia interrumpió la medición."
+sí:  "Sin dato entre marzo y septiembre de 2020 por interrupción de la
+      medición de subocupación durante la pandemia."
+
+no:  "La serie arranca en 2010, no en 2007 como el resto del tablero."
+sí:  "La serie de esta hoja del DANE arranca en 2010."
+
+no:  "Puesto 1 = el valor más alto. Para desempleo, subir es una mala señal."
+sí:  "Puesto 1 = el valor más alto entre las 23 ciudades y áreas
+      metropolitanas."
+```
+
+De ahí salen tres consecuencias prácticas:
+
+- **Sin negaciones ni contrastes**: "no es", "a diferencia de", "en vez de".
+- **Sin juicios**: "mala señal", "preocupante". El dato es el que es; quien lo
+  lee sabe si le conviene o no.
+- **La nota tiene que ser cierta para la gráfica que tiene encima.** Una nota
+  sobre la tasa de desempleo debajo de una gráfica de niveles de población es
+  ruido, por correcta que sea la frase. Y nunca afirmar algo que el tablero no
+  muestra: hubo una nota sobre el reparto por sexo de los oficios del hogar en
+  un panel que no lo desagrega, y que para Cali el DANE ni siquiera publica.
+
 ---
 
 ## Qué trae cada anexo
