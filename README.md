@@ -157,7 +157,7 @@ con los archivos de entrada.
 
 El tablero está en:
 
-**https://blasco2001.github.io/Tablero-mercado-laboral/**
+**https://cccjaguirre.github.io/Tablero-mercado-laboral/**
 
 Se republica solo. No hay que subir nada a mano.
 
@@ -174,6 +174,28 @@ habría que repetirlos si el proyecto se mudara a otro repositorio:
 
 Nada más. El resto lo hace el workflow.
 
+### El repositorio cambió de dueño
+
+En septiembre de 2026 pasó de una cuenta personal a la institucional
+`CCCJAGUIRRE`. Qué implica:
+
+- **La URL del repositorio redirige sola.** GitHub deja un 301 permanente, así
+  que los enlaces viejos a `github.com` siguen funcionando y un `git push`
+  contra el remote antiguo también. Aun así conviene actualizarlo:
+
+  ```bash
+  git remote set-url origin https://github.com/CCCJAGUIRRE/Tablero-mercado-laboral.git
+  ```
+
+- **La URL de Pages NO redirige.** `blasco2001.github.io/Tablero-mercado-laboral/`
+  devuelve 404, sin reenvío. Cualquier enlace que se haya compartido con esa
+  dirección está roto y hay que reemplazarlo. Es la razón de más peso para
+  activar cuanto antes el subdominio propio: un dominio de la CCC sobrevive a
+  cualquier mudanza futura de cuenta.
+
+- **El workflow, los issues y el cron siguen igual.** Las corridas programadas
+  no se interrumpieron y el historial de Actions viaja con el repositorio.
+
 ### Subdominio propio · pendiente
 
 La idea es que quede en `observatoriolaboral.ccc.org.co`. El archivo está
@@ -189,7 +211,7 @@ El orden correcto:
    ```
    Tipo    CNAME
    Nombre  observatoriolaboral
-   Valor   blasco2001.github.io
+   Valor   cccjaguirre.github.io
    TTL     3600
    ```
 
@@ -234,7 +256,7 @@ La vista queda guardada en la propia URL, así que se puede mandar por correo un
 enlace que abra justo donde uno quiere:
 
 ```
-https://blasco2001.github.io/Tablero-mercado-laboral/#seccion=informal&modo=an&periodo=2024
+https://cccjaguirre.github.io/Tablero-mercado-laboral/#seccion=informal&modo=an&periodo=2024
 ```
 
 El período va por su código, no por su posición, así que el enlace sigue

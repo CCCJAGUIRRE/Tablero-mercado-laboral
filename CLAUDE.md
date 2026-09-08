@@ -746,12 +746,18 @@ CCC se enlaza, igual que los demás visores. No hace falta el script de
    elegir **GitHub Actions** como origen. Hasta que alguien haga eso, el
    workflow corre y falla en el último paso.
 
-   Publica en `https://blasco2001.github.io/Tablero-mercado-laboral/`.
+   Publica en `https://cccjaguirre.github.io/Tablero-mercado-laboral/`.
+
+   **El repositorio cambió de dueño en septiembre de 2026**, de una cuenta
+   personal a la institucional `CCCJAGUIRRE`. La URL del repositorio redirige
+   sola con un 301 permanente, pero **la de Pages no**: la dirección anterior
+   devuelve 404 sin reenvío. Es el argumento más fuerte para activar el
+   subdominio propio — un dominio de la CCC sobrevive a la próxima mudanza.
 
 3. **Activar el subdominio propio**, `observatoriolaboral.ccc.org.co`.
 
    **El orden importa y hacerlo al revés tumba el sitio.** Con un archivo
-   `CNAME` presente, GitHub Pages redirige `blasco2001.github.io` al dominio
+   `CNAME` presente, GitHub Pages redirige `cccjaguirre.github.io` al dominio
    propio; si el DNS todavía no resuelve, el tablero queda inalcanzable por
    las dos rutas. Por eso el archivo está preparado como
    `docs/CNAME.pendiente` y **no** como `docs/CNAME`.
@@ -765,7 +771,7 @@ CCC se enlaza, igual que los demás visores. No hace falta el script de
       ```
       Tipo    CNAME
       Nombre  observatoriolaboral
-      Valor   blasco2001.github.io
+      Valor   cccjaguirre.github.io
       TTL     3600
       ```
 

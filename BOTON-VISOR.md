@@ -34,7 +34,7 @@ https://observatoriolaboral.ccc.org.co/
 ```
 
 > Mientras el subdominio no esté activo, la URL provisional es
-> `https://blasco2001.github.io/Tablero-mercado-laboral/`. Conviene esperar al
+> `https://cccjaguirre.github.io/Tablero-mercado-laboral/`. Conviene esperar al
 > subdominio antes de publicar el botón, para no tener que cambiarlo después.
 
 **Abre en**: pestaña nueva, igual que los demás visores.
