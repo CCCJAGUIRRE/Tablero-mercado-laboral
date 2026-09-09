@@ -323,7 +323,22 @@ esos niveles. Promediar tasas directamente sesgaría el resultado hacia los
 trimestres con menos población.
 
 *Comprobación:* para Cali A.M. en 2025 este método da 8,75% de desempleo y
-1.115.000 ocupados. El DANE publica 8,746% y 1.115.100 para el año completo.
+1.115.052 ocupados. El DANE publica 8,746% y 1.115.100 para el año completo;
+las 48 personas de diferencia son del redondeo en miles del propio anexo.
+
+### Las cifras no se redondean antes de tiempo
+
+Los anexos traen las poblaciones **en miles** y el tablero las muestra en
+personas, así que cada decimal que se guarda vale un orden de magnitud de
+gente. Los niveles se guardan con tres decimales para que el redondeo caiga
+sobre la persona y no sobre la centena.
+
+Con menos precisión, la población ocupada de Cali A.M. en Ene-Mar 2026 —
+1119,8246 en el anexo del DANE — se mostraba como 1.119.800 en vez de
+1.119.825. Veinticinco personas perdidas por redondear en la escala equivocada.
+
+Vale para los niveles de todos los módulos, y también para el promedio anual y
+para las series nacionales que se convierten de mensual a trimestre móvil.
 
 **Año en curso:** cuando un año todavía no tiene los cuatro trimestres, se
 promedia con los que haya y aparece marcado — *2026 (Ene-Jun)*. La comparación

@@ -148,7 +148,25 @@ def titulo_ciudad(txt) -> str:
     return " ".join(partes)
 
 
-def num(v):
+# Las tasas se guardan con dos decimales y los NIVELES con tres. La diferencia
+# no es estetica: los niveles vienen en miles y el front los multiplica por mil
+# para mostrarlos en personas, asi que cada decimal guardado vale un orden de
+# magnitud de personas.
+#
+#   guardado          al mostrar         error
+#   1119,8            1.119.800          25 personas
+#   1119,825          1.119.825          ninguno
+#
+# Con tres decimales el redondeo cae sobre la unidad -- la persona -- y no
+# sobre la centena. Antes el criterio era la MAGNITUD del numero (dos decimales
+# por debajo de 200, uno por encima), y eso mezclaba dos cosas distintas: una
+# tasa de 8,38 y un nivel de 105 mil personas caian en la misma rama aunque una
+# se lee con un decimal y la otra tiene que resolver personas sueltas.
+TASAS = {"td", "to", "tgp", "ts", "pct_pet", "pct_pet_joven",
+         "prop_informalidad", "pct_ffft"}
+
+
+def num(v, clave=None):
     """
     Convierte a float. Un cero exacto NO es un dato: en estos anexos el DANE
     rellena con 0 lo que no midio. El caso claro es la subocupacion entre
@@ -156,6 +174,9 @@ def num(v):
     En un area metropolitana de millones de habitantes ninguna poblacion ni
     tasa de este tablero puede valer exactamente cero, asi que se trata como
     dato faltante y la grafica deja el hueco en vez de dibujar una caida.
+
+    `clave` dice si el valor es una tasa o un nivel. Sin clave se asume nivel,
+    que es la opcion conservadora: guardar de mas nunca pierde una persona.
     """
     if v is None or isinstance(v, str):
         return None
@@ -165,7 +186,7 @@ def num(v):
         return None
     if f == 0:
         return None
-    return round(f, 2) if abs(f) < 200 else round(f, 1)
+    return round(f, 2 if clave in TASAS else 3)
 
 
 def cod_periodo(anio: int, mes_fin: int) -> str:
@@ -365,7 +386,7 @@ def indicadores_del_bloque(filas, fila_ini, fila_fin, mapa, n_periodos, col_ini=
             if etq.startswith(prefijo):
                 serie = []
                 for c in range(col_ini, col_ini + n_periodos):
-                    serie.append(num(fila[c]) if c < len(fila) else None)
+                    serie.append(num(fila[c], clave) if c < len(fila) else None)
                 out[clave] = serie
     return out
 
@@ -483,7 +504,7 @@ def mensual_a_trimestre_movil(serie):
     salida = []
     for i in range(len(serie) - 2):
         tramo = serie[i:i + 3]
-        salida.append(round(sum(tramo) / 3, 2)
+        salida.append(round(sum(tramo) / 3, 3)
                       if all(v is not None for v in tramo) else None)
     return salida
 
@@ -621,7 +642,7 @@ def parse_juventud(ruta: Path):
                 norm(filas[i][0]).startswith("poblacion en edad de trabajar")]
         if len(ocur) >= 2:
             f2 = filas[ocur[1]]
-            b["pet_joven"] = [num(f2[c]) if c < len(f2) else None
+            b["pet_joven"] = [num(f2[c], "pet_joven") if c < len(f2) else None
                               for c in range(1, 1 + n_per)]
         datos[nombre] = b
 
@@ -639,7 +660,7 @@ def parse_juventud(ruta: Path):
                 norm(f2[i][0]).startswith("poblacion en edad de trabajar")]
         if len(ocur) >= 2:
             fj = f2[ocur[1]]
-            b["pet_joven"] = [num(fj[c]) if c < len(fj) else None
+            b["pet_joven"] = [num(fj[c], "pet_joven") if c < len(fj) else None
                               for c in range(1, 1 + n_per)]
         datos[canonico] = b
 
@@ -667,7 +688,8 @@ def parse_informalidad(ruta: Path):
             break
         nombre = titulo_ciudad(f[0])
         datos[nombre] = {"prop_informalidad":
-                         [num(f[c]) if c < len(f) else None for c in range(1, 1 + n_per)]}
+                         [num(f[c], "prop_informalidad") if c < len(f) else None
+                          for c in range(1, 1 + n_per)]}
 
     # 2) niveles ocupados / formal / informal por ciudad
     filas2 = cargar_hoja(ruta, "Ciudades")
@@ -692,7 +714,7 @@ def parse_informalidad(ruta: Path):
         if clave is None:
             continue
         datos.setdefault(nombre_actual, {})[clave] = [
-            num(f[c]) if c < len(f) else None
+            num(f[c], clave) if c < len(f) else None
             for c in range(col_ini2, col_ini2 + n_per)]
 
     print(f"  informalidad : {len(datos)} ciudades x {n_per} trimestres moviles "
@@ -852,7 +874,9 @@ def _promediar(datos_tm, por_anio, anios, limite):
                 vals = [serie[i] for i in idxs if i < len(serie) and serie[i] is not None]
                 # Un promedio con trimestres faltantes no es el promedio del
                 # anio: es el de los meses que sobrevivieron. Mejor dejarlo vacio.
-                fila.append(round(sum(vals) / len(vals), 2)
+                # Tres decimales por lo mismo que num(): esto son niveles en
+                # miles, y el front los multiplica por mil para mostrarlos.
+                fila.append(round(sum(vals) / len(vals), 3)
                             if vals and len(vals) == len(idxs) else None)
             d[clave] = fila
 

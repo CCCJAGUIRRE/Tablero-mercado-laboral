@@ -108,8 +108,10 @@ no une los extremos. Unirlos inventaría una trayectoria que nadie midió.
 
 Ene-Mar, Abr-Jun, Jul-Sep y Oct-Dic. Cada mes del año entra exactamente una
 vez. Esta definición la fijó la CCC y reproduce la cifra oficial del DANE:
-Cali A.M. en 2025 da 8,75% de desempleo y 1.115.000 ocupados, contra 8,746% y
-1.115.100 publicados.
+Cali A.M. en 2025 da 8,75% de desempleo y 1.115.052 ocupados, contra 8,746% y
+1.115.100 publicados. Las 48 personas de diferencia son del redondeo del propio
+DANE, que advierte en sus anexos: "poblaciones en miles; por efecto del
+redondeo en miles, los totales pueden diferir ligeramente".
 
 **Los niveles se promedian. Las tasas se recalculan a partir de esos niveles.**
 Promediar tasas directamente sesga el resultado hacia los trimestres con menos
@@ -120,6 +122,46 @@ promedio con huecos no es el del año: es el de los meses que sobrevivieron.
 
 Se descartó el **año móvil**: no lo necesita el proyecto. Solo existen dos
 modos temporales, trimestre móvil y promedio anual.
+
+### 2.1 Los niveles se guardan con tres decimales, y no es capricho
+
+Los anexos traen las poblaciones **en miles** y el front las multiplica por mil
+para mostrarlas en personas. Eso convierte cada decimal guardado en un orden de
+magnitud de personas:
+
+```
+el DANE publica     guardado con      el tablero muestra    error
+1119,8246047454     1 decimal         1.119.800             25 personas
+                    3 decimales       1.119.825             ninguno
+```
+
+Con tres decimales el redondeo cae sobre **la unidad — la persona —** y no
+sobre la centena. `num()` en `etl.py` decide por el **tipo** del indicador: dos
+decimales para las tasas, tres para los niveles.
+
+El criterio anterior era la **magnitud** del número (dos decimales por debajo
+de 200, uno por encima) y mezclaba dos cosas distintas: una tasa de 8,38 y un
+nivel de 105 mil personas caían en la misma rama, aunque una se lee con un
+decimal y la otra tiene que resolver personas sueltas.
+
+El mismo criterio vale en los otros dos sitios donde se redondea un nivel: el
+promedio anual (`_promediar`) y la conversión de serie mensual a trimestre
+móvil (`mensual_a_trimestre_movil`). Redondear ahí con menos decimales
+reintroduce el error después de que `num()` lo evitó.
+
+**Cuidado al bajar la precisión:** un nivel pequeño redondeado con dureza puede
+dar un cero exacto, y por la regla 1 ese cero se lee como "sin dato". Con tres
+decimales el umbral está en media persona, así que no ocurre. Con uno, sí:
+comprobado que las posiciones ocupacionales más pequeñas — jornalero,
+trabajador familiar sin remuneración — empiezan a desaparecer.
+
+**Cuesta peso:** `datos.json` pasa de 2,40 a 2,68 MB, y de 840 KB a 1.023 KB
+comprimido. Es el precio de que una entidad que cita cifras publique la cifra
+que publica el DANE, y no una versión redondeada a la centena. Si el peso llega
+a molestar, la palanca buena es partir el archivo por módulo y cargarlo bajo
+demanda (pendiente 7), no volver a recortar decimales: el general pesa 20% y
+posición 13%, así que cargar solo lo que la sección abierta necesita rinde
+mucho más que un decimal.
 
 ### 3. Un año a medias no se compara contra uno entero
 
@@ -288,7 +330,9 @@ legítimo está comprobado, no supuesto:** el módulo general publica el total
 nacional en las dos formas, y promediar tres meses de la hoja mensual reproduce
 la trimestral con diferencia 0,0000 a lo largo de toda la serie. Además, las
 series convertidas se contrastan contra las del módulo general en los 196
-períodos comparables: diferencia máxima 0,07 mil, que es el redondeo de `num()`.
+períodos comparables: diferencia máxima **una persona**. Antes de subir la
+precisión de los niveles esa diferencia era de 70 personas, y venía enteramente
+del redondeo de `num()`.
 `verificar.py` mantiene esa comprobación viva.
 
 `verificar.py` comprueba esta matriz. Si alguien deja de leer una de esas
@@ -322,7 +366,9 @@ versión de doble clic se caería en cada render.
 
 ### 7. Detalles de las fuentes
 
-- Las poblaciones vienen en miles; el front las convierte a personas al mostrar.
+- Las poblaciones vienen en miles; el front las convierte a personas al
+  mostrar. La precisión guardada alcanza para que ese paso no pierda a
+  nadie: ver la regla 2.1.
 - La informalidad solo existe desde el primer trimestre de 2021, por el cambio
   metodológico de la GEIH. Las gráficas recortan solas el tramo vacío inicial.
 - Los NINI quedaron fuera a propósito: el DANE solo los publica a nivel
@@ -827,10 +873,12 @@ CCC se enlaza, igual que los demás visores. No hace falta el script de
 6. **Metadatos.** `og:image`, `og:description`, favicon con el isotipo. Cuando
    alguien comparta el enlace en LinkedIn o WhatsApp, tiene que verse la marca.
 
-7. **Peso.** `datos.json` pesa 1,75 MB (unos 400 KB comprimido). Se puede
-   bajar bastante separando el archivo por módulo y cargando bajo demanda, o
-   recortando la precisión de los niveles. No es urgente, pero en conexiones
-   lentas se nota.
+7. **Peso.** `datos.json` pesa 2,68 MB (1.023 KB comprimido). Se puede bajar
+   bastante **separando el archivo por módulo y cargando bajo demanda**: el
+   general pesa 20% del total, juventud 15%, sexo 28% entre los dos y posición
+   13%, así que una sección abierta necesita una fracción pequeña.
+   **Recortar la precisión de los niveles ya no es una opción**: es lo que
+   hacía perder personas al mostrar. Ver la regla 2.1.
 
 ### Referencia de diseño
 

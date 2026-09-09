@@ -134,6 +134,35 @@ def main():
 
     # ── 4. Contraste con la cifra publicada por el DANE ──────────────
     print("\n4. Contraste con lo que publica el DANE para 2025")
+
+    # Los niveles se guardan con tres decimales para que el redondeo caiga
+    # sobre la PERSONA y no sobre la centena. Con un decimal, la poblacion
+    # ocupada de Cali en Ene-Mar 2026 -- 1119,8246 en el anexo -- se guardaba
+    # como 1119,8 y el front mostraba 1.119.800: 25 personas menos.
+    i_ene_mar = tm["codigos"].index("2026-03")
+    oc = d["series"]["tm"]["general"]["Cali A.M."]["ocupados"][i_ene_mar]
+    check("ocupados de Cali A.M. en Ene-Mar 2026 redondean a 1.119.825",
+          oc is not None and round(oc * 1000) == 1_119_825,
+          f"{oc} -> {round(oc * 1000) if oc else None}")
+
+    # Y que la precision alcance en TODOS los niveles, no solo en ese.
+    # Tres decimales sobre una serie en miles resuelven la unidad; con menos,
+    # el front redondea a la decena o a la centena de personas.
+    def decimales(x):
+        t = repr(float(x))
+        return len(t.split(".")[1]) if "." in t and "e" not in t else 0
+
+    faltos = []
+    for modo in ("tm", "an"):
+        for mod, ciudades in d["series"][modo].items():
+            for ciudad, ind in ciudades.items():
+                for clave, serie in ind.items():
+                    if ES_TASA(clave):
+                        continue
+                    if any(v is not None and decimales(v) > 3 for v in serie):
+                        faltos.append(f"{modo}/{mod}/{clave}")
+    check("ningun nivel se guarda con mas de tres decimales",
+          not faltos, f"{sorted(set(faltos))[:5]}")
     check("desempleo de Cali A.M. en 2025 cerca de 8,746%",
           abs(gen_an["td"][i25] - 8.746) < 0.05, str(gen_an["td"][i25]))
     check("ocupados de Cali A.M. en 2025 cerca de 1.115.100",
@@ -309,8 +338,11 @@ def main():
         ofic = d["series"]["tm"]["general"]["Total nacional"][clave]
         difs = [abs(a - b) for a, b in zip(ofic, conv)
                 if a is not None and b is not None]
+        # Con niveles a tres decimales el desfase cae a una persona. Antes,
+        # con un decimal, la tolerancia tenia que ser de 0,15 mil -- 150
+        # personas -- solo para absorber el redondeo propio.
         check(f"{mod}: el nacional convertido de mensual reproduce el oficial ({etq})",
-              difs and max(difs) < 0.15,
+              difs and max(difs) <= 0.002,
               f"{len(difs)} periodos, diferencia maxima {max(difs) if difs else '-'}")
 
     # Un indicador de nivel que no este en NIVELES desaparece del promedio anual
