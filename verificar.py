@@ -228,7 +228,37 @@ def main():
 
     # ── 7. Modulos nuevos ────────────────────────────────────────────
     print("\n7. Fuera de la fuerza de trabajo y posicion ocupacional")
+
+    # DOS anclas, y la diferencia importa:
+    #
+    #   i_ult  -- el ultimo trimestre publicado. Aqui van las comprobaciones
+    #             ESTRUCTURALES: que las partes sumen el total, que los
+    #             ocupados de posicion sean los del modulo general, que el
+    #             agregado exista. Son ciertas en cualquier trimestre.
+    #
+    #   i_ctrl -- un trimestre FIJO, nombrado por su codigo. Aqui van las
+    #             cifras de control, leidas una por una del anexo. Son ciertas
+    #             solo para ese trimestre.
+    #
+    # Antes las cifras de control tambien colgaban de i_ult, y eso las hacia
+    # caducar cada mes: el dia que el DANE publico May-Jul 2026 fallaron 15
+    # pruebas de golpe, el workflow no publico y hubo que intervenir a mano.
+    # Eso contradice el requisito central del proyecto, que es que el tablero
+    # se actualice solo. Una cifra de control tiene que apuntar a un trimestre
+    # que no se mueva.
+    #
+    # Si alguna de estas falla sin que nadie haya tocado el ETL, significa que
+    # el DANE REVISO una cifra ya publicada. Eso pasa cada varios anios --
+    # el cambio de marco poblacional de 2021 es el caso -- y es justo lo que
+    # uno quiere enterarse, no ignorar.
     i_ult = len(tm["codigos"]) - 1
+    CTRL = "2026-07"
+    if CTRL not in tm["codigos"]:
+        aviso("el trimestre de control no esta en los datos",
+              f"{CTRL} no aparece; las cifras de control no se comprobaron")
+        i_ctrl = None
+    else:
+        i_ctrl = tm["codigos"].index(CTRL)
 
     # Las dos hojas arrancan en 2010, no en 2007. El promedio anual no puede
     # inventarse los tres primeros anios.
@@ -245,12 +275,19 @@ def main():
     tot_f = f["ffft"][i_ult]
     partes_f = sum(f[k][i_ult] for k in ("estudiando", "hogar", "otros_ffft"))
     check("fuera: estudiando + hogar + otros = el total",
-          abs(partes_f - tot_f) < 0.6, f"{partes_f:.1f} vs {tot_f:.1f} (miles)")
-    check("fuera: Cali A.M. cerca de 684.200 personas",
-          abs(tot_f * 1000 - 684_200) < 700, f"{tot_f * 1000:,.0f}")
-    for k, esperado in (("hogar", 54.4), ("estudiando", 23.2), ("otros_ffft", 22.5)):
-        pct = f[k][i_ult] / tot_f * 100
-        check(f"fuera: {k} cerca de {esperado}%", abs(pct - esperado) < 0.15, f"{pct:.2f}%")
+          abs(partes_f - tot_f) < 0.01, f"{partes_f:.3f} vs {tot_f:.3f} (miles)")
+
+    # Cifras de control, leidas del anexo de May-Jul 2026, bloque de Cali A.M.
+    # en la fila 142 de 'Pob_fuera_fuerza_trab_T13ciud'.
+    if i_ctrl is not None:
+        tc = f["ffft"][i_ctrl]
+        check("fuera: Cali A.M. son 693.194 personas en May-Jul 2026",
+              tc is not None and round(tc * 1000) == 693_194, f"{round(tc * 1000):,}")
+        for k, esperado in (("hogar", 54.290), ("estudiando", 22.379),
+                            ("otros_ffft", 23.331)):
+            pct = f[k][i_ctrl] / tc * 100
+            check(f"fuera: {k} es {esperado}% en May-Jul 2026",
+                  abs(pct - esperado) < 0.01, f"{pct:.3f}%")
 
     # Posicion ocupacional: las categorias suman los ocupados, y esos ocupados
     # son los mismos del modulo general. Si esas dos cosas dejan de cuadrar,
@@ -261,14 +298,23 @@ def main():
             "patron", "familiar", "jornalero", "otro_pos")
     suma = sum(q[k][i_ult] for k in cats if q.get(k) and q[k][i_ult] is not None)
     check("posicion: las categorias suman la poblacion ocupada",
-          abs(suma - oc_pos) < 0.6, f"{suma:.1f} vs {oc_pos:.1f} (miles)")
+          abs(suma - oc_pos) < 0.01, f"{suma:.3f} vs {oc_pos:.3f} (miles)")
     oc_gen = d["series"]["tm"]["general"]["Cali A.M."]["ocupados"][i_ult]
     check("posicion: sus ocupados son los mismos del modulo general",
-          abs(oc_pos - oc_gen) < 0.6, f"{oc_pos:.1f} vs {oc_gen:.1f} (miles)")
-    for k, esperado in (("particular", 56.0), ("cuenta", 34.4), ("domestico", 3.4),
-                        ("patron", 2.6), ("gobierno", 2.4), ("familiar", 1.1)):
-        pct = q[k][i_ult] / oc_pos * 100
-        check(f"posicion: {k} cerca de {esperado}%", abs(pct - esperado) < 0.15, f"{pct:.2f}%")
+          abs(oc_pos - oc_gen) < 0.01, f"{oc_pos:.3f} vs {oc_gen:.3f} (miles)")
+
+    # Control: bloque de Cali A.M. en la fila 207 de
+    # 'Ocupados 23 Ciudades_pos_Trim', anexo de May-Jul 2026.
+    if i_ctrl is not None:
+        oc_c = q["ocupados"][i_ctrl]
+        check("posicion: Cali A.M. son 1.135.552 ocupados en May-Jul 2026",
+              oc_c is not None and round(oc_c * 1000) == 1_135_552, f"{round(oc_c * 1000):,}")
+        for k, esperado in (("particular", 55.186), ("cuenta", 35.345),
+                            ("domestico", 2.884), ("patron", 2.714),
+                            ("gobierno", 2.691), ("familiar", 1.168)):
+            pct = q[k][i_ctrl] / oc_c * 100
+            check(f"posicion: {k} es {esperado}% en May-Jul 2026",
+                  abs(pct - esperado) < 0.01, f"{pct:.3f}%")
 
     # "Otro" viene en cero exacto, que por la regla 1 no es un dato
     check("posicion: la categoria 'Otro' del DANE queda vacia, no en cero",
@@ -307,20 +353,26 @@ def main():
     # del modulo general. Ese cuadre es lo que confirma que se esta leyendo el
     # bloque correcto y no el de 13 ciudades o el de 10.
     t23 = "Total 23 ciudades y A.M."
-    for mod, clave, esperado, tol in (
-            ("general", "td", 8.61, 0.01), ("general", "to", 59.98, 0.01),
-            ("general", "tgp", 65.63, 0.01), ("general", "ocupados", 12627.5, 0.2),
-            ("hombres", "td", 7.65, 0.01), ("hombres", "ocupados", 6818.1, 0.2),
-            ("mujeres", "td", 9.71, 0.01), ("mujeres", "ocupados", 5809.4, 0.2)):
-        v = d["series"]["tm"][mod][t23][clave][i_ult]
-        check(f"23 ciudades / {mod}: {clave} cerca de {esperado}",
-              v is not None and abs(v - esperado) < tol, f"{v}")
+    if i_ctrl is not None:
+        for mod, clave, esperado, tol in (
+                ("general", "td", 8.54, 0.005), ("general", "to", 60.07, 0.005),
+                ("general", "tgp", 65.68, 0.005),
+                ("general", "ocupados", 12659.608, 0.002),
+                ("hombres", "td", 7.80, 0.005), ("hombres", "ocupados", 6838.400, 0.002),
+                ("mujeres", "td", 9.39, 0.005), ("mujeres", "ocupados", 5821.209, 0.002)):
+            v = d["series"]["tm"][mod][t23][clave][i_ctrl]
+            check(f"23 ciudades / {mod}: {clave} es {esperado} en May-Jul 2026",
+                  v is not None and abs(v - esperado) < tol, f"{v}")
 
+    # Este cuadre SI va sobre el ultimo trimestre: es cierto siempre, y es lo
+    # que de verdad confirma que se lee el bloque de 23 y no el de 13 o el de
+    # 10. Una lectura del bloque equivocado rompe la suma de inmediato.
     oc_h = d["series"]["tm"]["hombres"][t23]["ocupados"][i_ult]
     oc_m = d["series"]["tm"]["mujeres"][t23]["ocupados"][i_ult]
     oc_g = d["series"]["tm"]["general"][t23]["ocupados"][i_ult]
     check("23 ciudades: hombres + mujeres = los ocupados del general",
-          abs(oc_h + oc_m - oc_g) < 0.2, f"{oc_h} + {oc_m} = {oc_h + oc_m} vs {oc_g}")
+          abs(oc_h + oc_m - oc_g) < 0.01,
+          f"{oc_h} + {oc_m} = {round(oc_h + oc_m, 3)} vs {oc_g}")
 
     # Y que no se colara el agregado de 10 ciudades, que el tablero no usa
     check("no entro el agregado de 10 ciudades",
