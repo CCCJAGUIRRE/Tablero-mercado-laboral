@@ -109,12 +109,20 @@ jobs:
         if: steps.decidir.outputs.publicar == 'si'
         run: python verificar.py
 
+      # La copia portatil lleva los datos incrustados, asi que hay que
+      # regenerarla o se queda en el trimestre anterior mientras docs/ avanza.
+      # Es la ruta que la gente manda por correo y abre con doble clic: si se
+      # desfasa, alguien cita una cifra vieja creyendo que es la del mes.
+      - name: Regenerar la copia portatil
+        if: steps.decidir.outputs.publicar == 'si'
+        run: python construir_archivo_unico.py
+
       - name: Guardar los anexos nuevos en el repo
         if: steps.descargar.outputs.codigo == '0'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add datos/ docs/datos.json
+          git add datos/ docs/datos.json tablero-completo.html
           if git diff --cached --quiet; then
             echo "Nada que comitear."
           else
